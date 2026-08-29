@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getStorefrontProducts } from "@/lib/db";
 import { getCategoryWithProductCount } from "@/lib/db";
 import { ProductCard } from "@/components/storefront/ProductCard";
-import { ArrowRight, Tag, ShoppingCart, CheckCircle, Star } from "lucide-react";
+import { ArrowRight, Tag } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -64,27 +64,6 @@ export default async function HomePage() {
               </Link>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section className="max-w-7xl mx-auto px-4 py-16">
-        <h2 className="text-center text-2xl font-bold mb-10" style={{ color: "var(--text)" }}>How It Works</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            { icon: <ShoppingCart size={28} />, step: "1", title: "Browse", desc: "Browse our full product catalog and add items to your cart." },
-            { icon: <CheckCircle size={28} />, step: "2", title: "Submit Request", desc: "Fill in your contact info and submit your order request online." },
-            { icon: <Star size={28} />, step: "3", title: "We Contact You", desc: "Our team will reach out to confirm your order and arrange fulfillment." },
-          ].map(item => (
-            <div key={item.step} className="card text-center">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4" style={{ background: "var(--accent)", color: "white" }}>
-                {item.icon}
-              </div>
-              <div className="text-xs font-bold mb-1" style={{ color: "var(--text-dim)" }}>STEP {item.step}</div>
-              <h3 className="font-bold text-lg mb-2" style={{ color: "var(--text)" }}>{item.title}</h3>
-              <p className="text-sm" style={{ color: "var(--text-muted)" }}>{item.desc}</p>
-            </div>
-          ))}
         </div>
       </section>
 

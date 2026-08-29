@@ -6,12 +6,9 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { password } = body;
 
-    if (
-      email !== (process.env.ADMIN_EMAIL || "admin@rocketdistro.com") ||
-      password !== (process.env.ADMIN_PASSWORD || "")
-    ) {
+    if (password !== (process.env.ADMIN_PASSWORD || "")) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
