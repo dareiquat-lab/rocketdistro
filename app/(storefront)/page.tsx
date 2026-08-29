@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getStorefrontProducts } from "@/lib/db";
 import { getCategoryWithProductCount } from "@/lib/db";
 import { ProductCard } from "@/components/storefront/ProductCard";
-import { ArrowRight, Tag } from "lucide-react";
+import { ArrowRight, Tag, Rocket } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,8 @@ export default async function HomePage() {
           }}
         />
         <div className="relative max-w-7xl mx-auto px-4 py-20 md:py-28">
-          <div className="max-w-3xl">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div>
             {/* Live badge */}
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium mb-6" style={{ background: "rgba(22,163,74,0.1)", color: "var(--success)", border: "1px solid rgba(22,163,74,0.2)" }}>
               <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "var(--success)" }} />
@@ -63,6 +64,15 @@ export default async function HomePage() {
                 <Tag size={16} /> Shop by Category
               </Link>
             </div>
+          </div>
+
+          {/* Decorative rocket */}
+          <div className="hidden lg:flex items-center justify-center">
+            <div className="hero-rocket">
+              <Rocket size={220} strokeWidth={0.75} />
+            </div>
+          </div>
+
           </div>
         </div>
       </section>
