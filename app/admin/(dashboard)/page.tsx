@@ -9,6 +9,7 @@ export default async function AdminPage() {
     totalProducts: 0, totalUnits: 0, lowStockCount: 0,
     recentlyUpdated: [], categoryBreakdown: [], totalCategories: 0,
     newOrdersCount: 0, monthlyProfit: 0, monthlyRevenue: 0,
+    totalClients: 0, orderStatusBreakdown: [], recentOrders: [],
   }));
 
   return (

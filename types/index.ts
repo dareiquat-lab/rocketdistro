@@ -77,6 +77,9 @@ export interface DashboardStats {
   newOrdersCount: number;
   monthlyProfit: number;
   monthlyRevenue: number;
+  totalClients: number;
+  orderStatusBreakdown: { status: string; count: number }[];
+  recentOrders: { id: number; order_number: string; customer_name: string; status: string; created_at: string; total: number }[];
 }
 
 export interface CartItem {

@@ -1,16 +1,40 @@
 "use client";
 
 import { useState } from "react";
-import { Package, Layers, AlertTriangle, ShoppingCart, DollarSign, TrendingUp, RefreshCw } from "lucide-react";
+import { Package, Layers, AlertTriangle, ShoppingCart, DollarSign, TrendingUp, RefreshCw, Users, ArrowRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { DashboardStats } from "@/types";
-import { CategoryIcon } from "@/components/ui/CategoryIcon";
+import { ORDER_STATUSES } from "@/types";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+  PieChart, Pie, Legend,
+} from "recharts";
 
 interface DashboardClientProps {
   initialStats: DashboardStats;
 }
 
-const SITE_NAME = "Rocket Distro";
+const CHART_COLORS = ["#2563eb", "#7c3aed", "#0d9488", "#d97706", "#ec4899", "#16a34a", "#dc2626", "#4f46e5"];
+
+const STATUS_META: Record<string, { label: string; color: string }> = {
+  new:       { label: "New",       color: "#2563eb" },
+  contacted: { label: "Contacted", color: "#7c3aed" },
+  ready:     { label: "Ready",     color: "#d97706" },
+  completed: { label: "Completed", color: "#16a34a" },
+  cancelled: { label: "Cancelled", color: "#dc2626" },
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const meta = STATUS_META[status] ?? { label: status, color: "#64748b" };
+  return (
+    <span
+      className="badge"
+      style={{ background: `${meta.color}18`, color: meta.color, border: `1px solid ${meta.color}30` }}
+    >
+      {meta.label}
+    </span>
+  );
+}
 
 export function DashboardClient({ initialStats }: DashboardClientProps) {
   const [stats, setStats] = useState(initialStats);
@@ -28,51 +52,74 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
 
   const statCards = [
     {
-      label: "Total Products",
+      label: "Products",
       value: stats.totalProducts.toLocaleString(),
-      icon: <Package size={20} />,
-      color: "var(--accent)",
+      icon: <Package size={18} />,
+      color: "#2563eb",
+      sub: `${stats.totalCategories} categories`,
     },
     {
       label: "Total Units",
       value: stats.totalUnits.toLocaleString(),
-      icon: <Layers size={20} />,
-      color: "var(--accent)",
+      icon: <Layers size={18} />,
+      color: "#7c3aed",
+      sub: "in inventory",
     },
     {
       label: "Low Stock",
       value: stats.lowStockCount.toLocaleString(),
-      icon: <AlertTriangle size={20} />,
-      color: stats.lowStockCount > 0 ? "var(--warning)" : "var(--success)",
+      icon: <AlertTriangle size={18} />,
+      color: stats.lowStockCount > 0 ? "#d97706" : "#16a34a",
       href: "/admin/low-stock",
+      sub: stats.lowStockCount > 0 ? "needs attention" : "all good",
     },
     {
       label: "New Orders",
       value: stats.newOrdersCount.toLocaleString(),
-      icon: <ShoppingCart size={20} />,
-      color: "var(--accent)",
+      icon: <ShoppingCart size={18} />,
+      color: "#ec4899",
       href: "/admin/orders",
+      sub: "awaiting action",
+    },
+    {
+      label: "Clients",
+      value: stats.totalClients.toLocaleString(),
+      icon: <Users size={18} />,
+      color: "#0d9488",
+      href: "/admin/clients",
+      sub: "registered",
     },
     {
       label: "Monthly Revenue",
       value: `$${stats.monthlyRevenue.toFixed(2)}`,
-      icon: <DollarSign size={20} />,
-      color: "var(--success)",
+      icon: <DollarSign size={18} />,
+      color: "#16a34a",
+      sub: "this month",
     },
     {
       label: "Monthly Profit",
       value: `$${stats.monthlyProfit.toFixed(2)}`,
-      icon: <TrendingUp size={20} />,
-      color: "var(--success)",
+      icon: <TrendingUp size={18} />,
+      color: "#4f46e5",
+      sub: "from completed",
     },
   ];
 
+  const pieData = stats.orderStatusBreakdown.map(row => ({
+    name: STATUS_META[row.status]?.label ?? row.status,
+    value: row.count,
+    color: STATUS_META[row.status]?.color ?? "#64748b",
+  }));
+
+  const barData = stats.categoryBreakdown.filter(c => c.count > 0);
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold" style={{ color: "var(--text)" }}>{SITE_NAME} Dashboard</h2>
-          <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>Overview of your business</p>
+          <h1 className="text-2xl font-black" style={{ color: "var(--text)" }}>Dashboard</h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>Welcome back — here's your business overview</p>
         </div>
         <button onClick={refresh} className="btn-secondary" disabled={loading}>
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
@@ -81,80 +128,201 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
         {statCards.map((card) => (
           <a
             key={card.label}
             href={card.href}
-            className={`card ${card.href ? "cursor-pointer hover:shadow-md transition-shadow" : "cursor-default"}`}
-            style={{ textDecoration: "none" }}
+            className="card group"
+            style={{ textDecoration: "none", borderLeft: `3px solid ${card.color}`, cursor: card.href ? "pointer" : "default" }}
           >
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2 rounded-lg" style={{ background: `${card.color}20`, color: card.color }}>
-                {card.icon}
-              </div>
+            <div
+              className="inline-flex p-2 rounded-lg mb-3"
+              style={{ background: `${card.color}15`, color: card.color }}
+            >
+              {card.icon}
             </div>
-            <p className="text-2xl font-black" style={{ color: "var(--text)" }}>{card.value}</p>
-            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{card.label}</p>
+            <p className="text-xl font-black leading-none" style={{ color: "var(--text)" }}>{card.value}</p>
+            <p className="text-xs font-semibold mt-1" style={{ color: "var(--text-muted)" }}>{card.label}</p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-dim)" }}>{card.sub}</p>
           </a>
         ))}
       </div>
 
-      {/* Two column section */}
+      {/* Charts row */}
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Recently Updated */}
+        {/* Category bar chart */}
         <div className="card">
-          <h3 className="font-semibold text-sm mb-4" style={{ color: "var(--text)" }}>Recently Updated Products</h3>
-          {stats.recentlyUpdated.length === 0 ? (
-            <p className="text-sm" style={{ color: "var(--text-dim)" }}>No products yet.</p>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-sm" style={{ color: "var(--text)" }}>Products by Category</h3>
+            <a href="/admin/inventory" className="text-xs flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
+              View all <ArrowRight size={12} />
+            </a>
+          </div>
+          {barData.length === 0 ? (
+            <div className="flex items-center justify-center h-40">
+              <p className="text-sm" style={{ color: "var(--text-dim)" }}>No products yet</p>
+            </div>
           ) : (
-            <div className="space-y-3">
-              {stats.recentlyUpdated.map((p) => (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={barData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                <XAxis
+                  dataKey="category"
+                  tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    fontSize: 12,
+                  }}
+                  cursor={{ fill: "var(--muted)" }}
+                  formatter={(v) => [v, "Products"]}
+                />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                  {barData.map((_, i) => (
+                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Order status pie */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-sm" style={{ color: "var(--text)" }}>Order Status Breakdown</h3>
+            <a href="/admin/orders" className="text-xs flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
+              View all <ArrowRight size={12} />
+            </a>
+          </div>
+          {pieData.length === 0 ? (
+            <div className="flex items-center justify-center h-40">
+              <p className="text-sm" style={{ color: "var(--text-dim)" }}>No orders yet</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={55}
+                  outerRadius={80}
+                  paddingAngle={3}
+                  dataKey="value"
+                >
+                  {pieData.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    fontSize: 12,
+                  }}
+                  formatter={(v, name) => [v, name]}
+                />
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: 12, color: "var(--text-muted)" }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom row */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Recent orders */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-sm" style={{ color: "var(--text)" }}>Recent Orders</h3>
+            <a href="/admin/orders" className="text-xs flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
+              View all <ArrowRight size={12} />
+            </a>
+          </div>
+          {stats.recentOrders.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--text-dim)" }}>No orders yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {stats.recentOrders.map(order => (
                 <a
-                  key={p.id}
-                  href={`/admin/products/${p.id}`}
-                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-[var(--muted)] transition-colors"
+                  key={order.id}
+                  href={`/admin/orders`}
+                  className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-[var(--muted)] transition-colors"
                   style={{ textDecoration: "none" }}
                 >
-                  <CategoryIcon icon={stats.categoryBreakdown.find(c => c.category === p.category)?.icon ?? "📦"} size="sm" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>{p.product_name}</p>
-                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>{p.category} · {p.sku}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-mono font-bold" style={{ color: "var(--text-dim)" }}>{order.order_number}</p>
+                      <StatusBadge status={order.status} />
+                    </div>
+                    <p className="text-sm font-medium truncate mt-0.5" style={{ color: "var(--text)" }}>{order.customer_name}</p>
                   </div>
-                  <p className="text-xs" style={{ color: "var(--text-dim)" }}>
-                    {formatDistanceToNow(new Date(p.updated_at), { addSuffix: true })}
-                  </p>
+                  <div className="text-right">
+                    <p className="text-sm font-mono font-bold" style={{ color: "var(--text)" }}>${Number(order.total).toFixed(2)}</p>
+                    <p className="text-xs" style={{ color: "var(--text-dim)" }}>
+                      {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
+                    </p>
+                  </div>
                 </a>
               ))}
             </div>
           )}
         </div>
 
-        {/* Category Breakdown */}
+        {/* Recently updated products */}
         <div className="card">
-          <h3 className="font-semibold text-sm mb-4" style={{ color: "var(--text)" }}>Category Breakdown</h3>
-          {stats.categoryBreakdown.length === 0 ? (
-            <p className="text-sm" style={{ color: "var(--text-dim)" }}>No categories yet.</p>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-sm" style={{ color: "var(--text)" }}>Recently Updated Products</h3>
+            <a href="/admin/inventory" className="text-xs flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
+              View all <ArrowRight size={12} />
+            </a>
+          </div>
+          {stats.recentlyUpdated.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--text-dim)" }}>No products yet.</p>
           ) : (
             <div className="space-y-2">
-              {stats.categoryBreakdown.slice(0, 8).map((cat) => {
-                const max = Math.max(...stats.categoryBreakdown.map(c => c.count));
-                const pct = max > 0 ? (cat.count / max) * 100 : 0;
-                return (
-                  <div key={cat.category} className="flex items-center gap-3">
-                    <span className="text-base w-6">{cat.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-medium truncate" style={{ color: "var(--text)" }}>{cat.category}</span>
-                        <span className="text-xs font-mono ml-2" style={{ color: "var(--text-muted)" }}>{cat.count}</span>
-                      </div>
-                      <div className="h-1.5 rounded-full" style={{ background: "var(--muted)" }}>
-                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: "var(--accent)" }} />
-                      </div>
-                    </div>
+              {stats.recentlyUpdated.map((p, i) => (
+                <a
+                  key={p.id}
+                  href={`/admin/products/${p.id}`}
+                  className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-[var(--muted)] transition-colors"
+                  style={{ textDecoration: "none" }}
+                >
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
+                    style={{ background: `${CHART_COLORS[i % CHART_COLORS.length]}18` }}
+                  >
+                    {stats.categoryBreakdown.find(c => c.category === p.category)?.icon ?? "📦"}
                   </div>
-                );
-              })}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>{p.product_name}</p>
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>{p.category} · {p.sku}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-mono font-bold" style={{ color: "var(--text)" }}>{p.quantity}</p>
+                    <p className="text-xs" style={{ color: "var(--text-dim)" }}>
+                      {formatDistanceToNow(new Date(p.updated_at), { addSuffix: true })}
+                    </p>
+                  </div>
+                </a>
+              ))}
             </div>
           )}
         </div>

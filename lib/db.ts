@@ -839,6 +839,9 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     categoryRows,
     newOrdersRows,
     monthlyRows,
+    clientCountRows,
+    statusRows,
+    recentOrderRows,
   ] = await Promise.all([
     sql`SELECT COUNT(*) as count FROM products`.catch(() => [{ count: 0 }]),
     sql`SELECT COALESCE(SUM(quantity), 0) as total FROM products`.catch(() => [{ total: 0 }]),
@@ -861,6 +864,16 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       WHERE o.status = 'completed'
       AND DATE_TRUNC('month', o.created_at) = DATE_TRUNC('month', NOW())
     `.catch(() => [{ profit: 0, revenue: 0 }]),
+    sql`SELECT COUNT(*) as count FROM clients`.catch(() => [{ count: 0 }]),
+    sql`SELECT status, COUNT(*)::int as count FROM orders GROUP BY status`.catch(() => []),
+    sql`
+      SELECT o.id, o.order_number, o.customer_name, o.status, o.created_at,
+        COALESCE(SUM(oi.price * oi.quantity), 0) as total
+      FROM orders o
+      LEFT JOIN order_items oi ON oi.order_id = o.id
+      GROUP BY o.id, o.order_number, o.customer_name, o.status, o.created_at
+      ORDER BY o.created_at DESC LIMIT 5
+    `.catch(() => []),
   ]);
 
   return {
@@ -873,6 +886,9 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     newOrdersCount: parseInt(String(newOrdersRows[0]?.count ?? "0"), 10),
     monthlyProfit: parseFloat(String(monthlyRows[0]?.profit ?? "0")),
     monthlyRevenue: parseFloat(String(monthlyRows[0]?.revenue ?? "0")),
+    totalClients: parseInt(String(clientCountRows[0]?.count ?? "0"), 10),
+    orderStatusBreakdown: statusRows as { status: string; count: number }[],
+    recentOrders: recentOrderRows as { id: number; order_number: string; customer_name: string; status: string; created_at: string; total: number }[],
   };
 }
 
