@@ -1,0 +1,31 @@
+import { NextRequest, NextResponse } from "next/server";
+import { computeAdminToken, ADMIN_COOKIE, ADMIN_COOKIE_MAX_AGE } from "@/lib/auth-utils";
+
+export const dynamic = "force-dynamic";
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { email, password } = body;
+
+    if (
+      email !== (process.env.ADMIN_EMAIL || "admin@rocketdistro.com") ||
+      password !== (process.env.ADMIN_PASSWORD || "")
+    ) {
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    }
+
+    const token = await computeAdminToken(password);
+    const response = NextResponse.json({ ok: true });
+    response.cookies.set(ADMIN_COOKIE, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: ADMIN_COOKIE_MAX_AGE,
+      path: "/",
+    });
+    return response;
+  } catch {
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
+}
