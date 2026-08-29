@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Rocket, Eye, EyeOff } from "lucide-react";
-import { Suspense } from "react";
 
 function LoginForm() {
   const router = useRouter();
@@ -39,14 +38,31 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "var(--background)" }}>
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ background: "var(--background)" }}>
+      {/* Grid background */}
+      <div className="absolute inset-0 opacity-[0.04]" style={{
+        backgroundImage: "linear-gradient(var(--text) 1px, transparent 1px), linear-gradient(90deg, var(--text) 1px, transparent 1px)",
+        backgroundSize: "48px 48px",
+      }} />
+
+      {/* Large background rocket */}
+      <div className="bg-rocket absolute -bottom-16 -right-16">
+        <Rocket size={440} strokeWidth={0.5} />
+      </div>
+
+      <div className="w-full max-w-sm relative z-10">
+        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4" style={{ background: "var(--accent)" }}>
-            <Rocket size={28} color="white" />
+          <div className="relative inline-block mb-5">
+            <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto" style={{ background: "var(--accent)" }}>
+              <Rocket size={38} color="white" />
+            </div>
+            <div className="absolute inset-0 rounded-2xl" style={{
+              boxShadow: "0 0 0 8px color-mix(in srgb, var(--accent) 12%, transparent)",
+            }} />
           </div>
-          <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Rocket Distro</h1>
-          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Admin Portal</p>
+          <h1 className="text-2xl font-black tracking-wide" style={{ color: "var(--text)" }}>ROCKET DISTRO</h1>
+          <p className="text-xs font-semibold tracking-widest mt-1 uppercase" style={{ color: "var(--text-muted)" }}>Admin Portal</p>
         </div>
 
         <div className="card">
@@ -79,7 +95,7 @@ function LoginForm() {
               </p>
             )}
             <button type="submit" className="btn-primary w-full justify-center" disabled={loading}>
-              {loading ? "Signing in…" : "Sign In"}
+              {loading ? "Launching…" : "Sign In"}
             </button>
           </form>
         </div>

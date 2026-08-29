@@ -35,10 +35,10 @@
 /* ─── Light theme (solar-punk clean) ────────────────────────── */
 
 :root {
-  --background:   #f0f6ff;
-  --surface:      #ffffff;
-  --muted:        #e5efff;
-  --border:       #c2d6f0;
+  --background:   #e8f1fb;
+  --surface:      #f4f8ff;
+  --muted:        #dce8f8;
+  --border:       #aec8e8;
   --text:         #0c1e38;
   --text-muted:   #3a5a82;
   --text-dim:     #8aaac8;
@@ -48,9 +48,9 @@
   --success:      #008858;
   --warning:      #c27600;
   --danger:       #cc1e4a;
-  --shadow-sm:    0 1px 4px rgba(10, 30, 80, 0.08);
-  --shadow-md:    0 4px 16px rgba(10, 30, 80, 0.10);
-  --shadow-lg:    0 8px 32px rgba(10, 30, 80, 0.12);
+  --shadow-sm:    0 2px 8px rgba(10, 30, 80, 0.10), 0 1px 3px rgba(10, 30, 80, 0.06);
+  --shadow-md:    0 4px 20px rgba(10, 30, 80, 0.12), 0 2px 8px rgba(10, 30, 80, 0.07);
+  --shadow-lg:    0 8px 40px rgba(10, 30, 80, 0.14), 0 4px 16px rgba(10, 30, 80, 0.08);
   --neon-accent:  none;
   --neon-success: none;
   --neon-danger:  none;
@@ -270,21 +270,43 @@ body {
   background-color: rgba(0, 144, 212, 0.04);
 }
 
-/* ─── Hero rocket ────────────────────────────────────────────── */
+/* ─── Rocket decorative classes ──────────────────────────────── */
 
 .hero-rocket {
-  opacity: 0.10;
+  opacity: 0.18;
   color: var(--accent);
   animation: float 7s ease-in-out infinite;
   pointer-events: none;
   user-select: none;
 }
-
 [data-theme="dark"] .hero-rocket {
   opacity: 0.22;
   filter:
     drop-shadow(0 0 28px rgba(0, 144, 212, 0.55))
     drop-shadow(0 0 64px rgba(0, 144, 212, 0.18));
+}
+
+.bg-rocket {
+  opacity: 0.07;
+  color: var(--accent);
+  pointer-events: none;
+  user-select: none;
+  animation: float 9s ease-in-out infinite;
+}
+[data-theme="dark"] .bg-rocket {
+  opacity: 0.09;
+  filter: drop-shadow(0 0 24px rgba(0, 144, 212, 0.35));
+}
+
+.success-rocket {
+  color: var(--success);
+  animation: float 5s ease-in-out infinite;
+  pointer-events: none;
+}
+[data-theme="dark"] .success-rocket {
+  filter:
+    drop-shadow(0 0 20px rgba(0, 232, 156, 0.55))
+    drop-shadow(0 0 40px rgba(0, 232, 156, 0.2));
 }
 
 /* ─── Nav active state ───────────────────────────────────────── */
