@@ -28,8 +28,8 @@ export function StorefrontNav() {
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 no-underline">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--accent)" }}>
-              <Rocket size={16} color="white" />
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center nav-active" style={{ background: "var(--accent)" }}>
+              <Rocket size={16} color="var(--accent-fg)" />
             </div>
             <span className="font-black text-sm tracking-wide" style={{ color: "var(--text)" }}>ROCKET DISTRO</span>
           </Link>

@@ -60,8 +60,8 @@ export function AdminSidebar({ newOrdersCount = 0, lowStockCount = 0, userEmail 
       {/* Logo */}
       <div className="flex items-center justify-between px-4 py-5 border-b" style={{ borderColor: "var(--border)" }}>
         <Link href="/admin" className="flex items-center gap-2" onClick={() => setMobileOpen(false)}>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--accent)" }}>
-            <Rocket size={16} color="white" />
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center nav-active" style={{ background: "var(--accent)" }}>
+            <Rocket size={16} color="var(--accent-fg)" />
           </div>
           <span className="font-black text-sm tracking-wide" style={{ color: "var(--text)" }}>ROCKET DISTRO</span>
         </Link>
@@ -92,13 +92,13 @@ export function AdminSidebar({ newOrdersCount = 0, lowStockCount = 0, userEmail 
             href={item.href}
             onClick={() => setMobileOpen(false)}
             className={cn(
-              "flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+              "flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
               isActive(item.href)
-                ? "text-white"
+                ? "text-white nav-active"
                 : "hover:bg-[var(--muted)]"
             )}
             style={isActive(item.href)
-              ? { background: "var(--accent)", color: "white" }
+              ? { background: "var(--accent)", color: "var(--accent-fg)" }
               : { color: "var(--text-muted)" }
             }
           >
