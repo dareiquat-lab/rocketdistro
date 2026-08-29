@@ -16,14 +16,18 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File | null;
     if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return NextResponse.json({ error: "BLOB_READ_WRITE_TOKEN is not set" }, { status: 500 });
+    }
+
     const blob = await put(`products/${Date.now()}-${file.name}`, file, {
       access: "public",
-      token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
     return NextResponse.json({ url: blob.url });
   } catch (e) {
     console.error(e);
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+    const msg = e instanceof Error ? e.message : "Upload failed";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
