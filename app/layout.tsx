@@ -17,6 +17,19 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Rocket Distro — Wholesale Distribution",
   description: "Official wholesale distributor. Browse our product catalog and place orders online.",
+  metadataBase: new URL("https://rocketdistro.site"),
+  openGraph: {
+    title: "Rocket Distro — Wholesale Distribution",
+    description: "Official wholesale distributor. Browse our product catalog and place orders online.",
+    url: "https://rocketdistro.site",
+    siteName: "Rocket Distro",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Rocket Distro — Wholesale Distribution",
+    description: "Official wholesale distributor. Browse our product catalog and place orders online.",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
