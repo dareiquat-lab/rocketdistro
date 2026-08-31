@@ -237,6 +237,7 @@ body {
 
 .table-container {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: 0.875rem;
   border: 1px solid var(--border);
 }

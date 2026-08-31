@@ -120,7 +120,7 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
   const barData = stats.categoryBreakdown.filter(c => c.count > 0);
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto overflow-x-hidden">
+    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
