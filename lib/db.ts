@@ -125,6 +125,47 @@ export async function ensureInvoiceActivityTable() {
   await sql`CREATE INDEX IF NOT EXISTS idx_invoice_activity_order_id ON invoice_activity(order_id)`;
 }
 
+export async function ensureEmailLogTable() {
+  await sql`
+    CREATE TABLE IF NOT EXISTS email_log (
+      id SERIAL PRIMARY KEY,
+      order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+      order_number TEXT,
+      type TEXT NOT NULL,
+      to_email TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'sent',
+      error TEXT,
+      sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_email_log_sent_at ON email_log(sent_at DESC)`;
+}
+
+export async function logEmail(data: {
+  order_id?: number | null;
+  order_number?: string | null;
+  type: string;
+  to_email: string;
+  subject: string;
+  status: "sent" | "failed";
+  error?: string | null;
+}) {
+  await ensureEmailLogTable();
+  await sql`
+    INSERT INTO email_log (order_id, order_number, type, to_email, subject, status, error)
+    VALUES (${data.order_id ?? null}, ${data.order_number ?? null}, ${data.type}, ${data.to_email}, ${data.subject}, ${data.status}, ${data.error ?? null})
+  `;
+}
+
+export async function getEmailLog(limit = 100) {
+  await ensureEmailLogTable();
+  const rows = await sql`
+    SELECT * FROM email_log ORDER BY sent_at DESC LIMIT ${limit}
+  `;
+  return rows;
+}
+
 // ─── SKU Generation ───────────────────────────────────────────────────────────
 
 const CATEGORY_PREFIXES: Record<string, string> = {

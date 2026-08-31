@@ -6,7 +6,7 @@ import { useState } from "react";
 import {
   Rocket, LayoutDashboard, Package, AlertTriangle, ShoppingCart,
   Users, Tag, Sparkles, TrendingUp, ScanLine, FileText, LogOut,
-  X, Menu, FileDown
+  X, Menu, FileDown, Send
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { Sun, Moon } from "lucide-react";
@@ -43,6 +43,7 @@ export function AdminSidebar({ newOrdersCount = 0, lowStockCount = 0, userEmail 
     { href: "/admin/profit", label: "Profit", icon: <TrendingUp size={18} /> },
     { href: "/admin/scan", label: "Scan", icon: <ScanLine size={18} /> },
     { href: "/admin/invoices", label: "Invoices", icon: <FileText size={18} /> },
+    { href: "/admin/outbox", label: "Outbox", icon: <Send size={18} /> },
   ];
 
   const handleLogout = async () => {
