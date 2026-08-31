@@ -17,6 +17,7 @@ export function StorefrontNav() {
     { href: "/", label: "Home" },
     { href: "/products", label: "Products" },
     { href: "/categories", label: "Categories" },
+    { href: "/staff", label: "Staff" },
   ];
 
   return (

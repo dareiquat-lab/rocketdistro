@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { cookies } from "next/headers";
-import { computeAdminToken, ADMIN_COOKIE } from "@/lib/auth-utils";
+import { ADMIN_COOKIE, STAFF_COOKIE, isAdminOrStaff } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -78,9 +78,9 @@ Rules: Return ONLY the JSON object. If a field is not visible, set it to null.`;
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get(ADMIN_COOKIE)?.value;
-    const expected = await computeAdminToken(process.env.ADMIN_PASSWORD || "");
-    if (!token || token !== expected) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const adminToken = cookieStore.get(ADMIN_COOKIE)?.value;
+    const staffToken = cookieStore.get(STAFF_COOKIE)?.value;
+    if (!(await isAdminOrStaff(adminToken, staffToken))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 503 });

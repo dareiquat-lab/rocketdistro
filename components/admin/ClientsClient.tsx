@@ -17,7 +17,7 @@ const emptyClient = (): Partial<Client> => ({
   tobacco_license_number: "", sellers_permit_number: "", client_type: "Retailer", notes: "",
 });
 
-export function ClientsClient() {
+export function ClientsClient({ staffMode = false }: { staffMode?: boolean }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
@@ -168,7 +168,7 @@ export function ClientsClient() {
                 <td>
                   <div className="flex gap-1">
                     <button onClick={() => openEdit(client)} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--accent)" }}><Edit size={14} /></button>
-                    <button onClick={() => setDeleteId(client.id)} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--danger)" }}><Trash2 size={14} /></button>
+                    {!staffMode && <button onClick={() => setDeleteId(client.id)} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--danger)" }}><Trash2 size={14} /></button>}
                   </div>
                 </td>
               </tr>

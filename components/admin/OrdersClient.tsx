@@ -41,7 +41,7 @@ const emptyForm = (): OrderFormData => ({
   client_type: "Retailer", notes: "", items: [],
 });
 
-export function OrdersClient() {
+export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
@@ -316,7 +316,7 @@ export function OrdersClient() {
                       <button onClick={() => openEdit(order)} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--accent)" }} title="Edit"><Eye size={14} /></button>
                       <a href={`/admin/orders/${order.id}/invoice`} target="_blank" className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--text-muted)" }} title="Invoice"><Printer size={14} /></a>
                       <button onClick={() => setEmailOrder(order)} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--text-muted)" }} title="Email"><Mail size={14} /></button>
-                      <button onClick={() => setDeleteId(order.id)} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--danger)" }} title="Delete"><Trash2 size={14} /></button>
+                      {!staffMode && <button onClick={() => setDeleteId(order.id)} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--danger)" }} title="Delete"><Trash2 size={14} /></button>}
                     </div>
                   </td>
                 </tr>
