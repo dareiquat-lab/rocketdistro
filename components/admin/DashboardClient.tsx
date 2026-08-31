@@ -253,9 +253,9 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
       </div>
 
       {/* Bottom row */}
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid lg:grid-cols-2 gap-6" style={{ minWidth: 0 }}>
         {/* Recent orders */}
-        <div className="card" style={{ padding: 0 }}>
+        <div className="card" style={{ padding: 0, overflow: "hidden", minWidth: 0 }}>
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
             <h3 className="font-bold text-sm" style={{ color: "var(--text)" }}>Recent Orders</h3>
             <a href="/admin/orders" className="text-xs flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
@@ -291,7 +291,7 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
         </div>
 
         {/* Recently updated products */}
-        <div className="card" style={{ padding: 0 }}>
+        <div className="card" style={{ padding: 0, overflow: "hidden", minWidth: 0 }}>
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
             <h3 className="font-bold text-sm" style={{ color: "var(--text)" }}>Recently Updated Products</h3>
             <a href="/admin/inventory" className="text-xs flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
