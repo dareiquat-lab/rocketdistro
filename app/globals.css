@@ -340,6 +340,127 @@ body {
 .anim-slide-in  { animation: slide-in-x 0.28s cubic-bezier(0.4, 0, 0.2, 1) both; }
 .anim-scale-in  { animation: scale-in  0.25s cubic-bezier(0.4, 0, 0.2, 1) both; }
 
+/* ─── Space aesthetics (dark mode only) ──────────────────────── */
+/* Delete this entire section to revert to plain dark background  */
+
+@keyframes twinkle-a {
+  0%, 100% { opacity: 0.25; }
+  50%       { opacity: 0.75; }
+}
+@keyframes twinkle-b {
+  0%, 100% { opacity: 0.6;  }
+  50%       { opacity: 0.15; }
+}
+@keyframes shooting-star {
+  0%,  90% { transform: translate(0, 0) rotate(-32deg); opacity: 0; width: 0; }
+  91%       { opacity: 1; width: 110px; }
+  100%      { transform: translate(900px, 520px) rotate(-32deg); opacity: 0; width: 110px; }
+}
+@keyframes shooting-star-2 {
+  0%,  85% { transform: translate(0, 0) rotate(-28deg); opacity: 0; width: 0; }
+  86%       { opacity: 0.7; width: 80px; }
+  100%      { transform: translate(700px, 380px) rotate(-28deg); opacity: 0; width: 80px; }
+}
+
+/* Small white stars */
+[data-theme="dark"] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(1px 1px at  4%  15%, rgba(255,255,255,0.70), transparent),
+    radial-gradient(1px 1px at 19%   7%, rgba(255,255,255,0.55), transparent),
+    radial-gradient(1px 1px at 33%  22%, rgba(255,255,255,0.65), transparent),
+    radial-gradient(1px 1px at 48%   4%, rgba(255,255,255,0.50), transparent),
+    radial-gradient(1px 1px at 62%  18%, rgba(255,255,255,0.60), transparent),
+    radial-gradient(1px 1px at 77%   9%, rgba(255,255,255,0.45), transparent),
+    radial-gradient(1px 1px at 91%  24%, rgba(255,255,255,0.70), transparent),
+    radial-gradient(1px 1px at  8%  38%, rgba(255,255,255,0.55), transparent),
+    radial-gradient(1px 1px at 27%  45%, rgba(255,255,255,0.65), transparent),
+    radial-gradient(1px 1px at 43%  31%, rgba(255,255,255,0.40), transparent),
+    radial-gradient(1px 1px at 58%  52%, rgba(255,255,255,0.60), transparent),
+    radial-gradient(1px 1px at 72%  38%, rgba(255,255,255,0.50), transparent),
+    radial-gradient(1px 1px at 87%  46%, rgba(255,255,255,0.70), transparent),
+    radial-gradient(1px 1px at 15%  62%, rgba(255,255,255,0.45), transparent),
+    radial-gradient(1px 1px at 35%  58%, rgba(255,255,255,0.60), transparent),
+    radial-gradient(1px 1px at 51%  71%, rgba(255,255,255,0.55), transparent),
+    radial-gradient(1px 1px at 66%  64%, rgba(255,255,255,0.40), transparent),
+    radial-gradient(1px 1px at 82%  57%, rgba(255,255,255,0.65), transparent),
+    radial-gradient(1px 1px at 96%  68%, rgba(255,255,255,0.50), transparent),
+    radial-gradient(1px 1px at 22%  82%, rgba(255,255,255,0.70), transparent),
+    radial-gradient(1px 1px at 39%  88%, rgba(255,255,255,0.45), transparent),
+    radial-gradient(1px 1px at 55%  79%, rgba(255,255,255,0.60), transparent),
+    radial-gradient(1px 1px at 70%  91%, rgba(255,255,255,0.55), transparent),
+    radial-gradient(1px 1px at 85%  84%, rgba(255,255,255,0.65), transparent),
+    radial-gradient(1px 1px at 11%  93%, rgba(255,255,255,0.50), transparent);
+  background-size: 100% 100%;
+  animation: twinkle-a 7s ease-in-out infinite;
+}
+
+/* Slightly larger blue-tinted stars + nebula corner glows */
+[data-theme="dark"] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    /* Nebula glows */
+    radial-gradient(ellipse 55% 45% at 100%   0%, rgba(0, 90, 200, 0.07), transparent),
+    radial-gradient(ellipse 40% 35% at   0% 100%, rgba(70,  0, 150, 0.05), transparent),
+    radial-gradient(ellipse 28% 22% at  72%  48%, rgba(0, 144, 212, 0.035), transparent),
+    /* Blue-tinted accent stars */
+    radial-gradient(1.5px 1.5px at 10%  28%, rgba(180,220,255,0.75), transparent),
+    radial-gradient(1.5px 1.5px at 31%  12%, rgba(180,220,255,0.60), transparent),
+    radial-gradient(1.5px 1.5px at 53%  36%, rgba(180,220,255,0.70), transparent),
+    radial-gradient(1.5px 1.5px at 74%  19%, rgba(200,230,255,0.65), transparent),
+    radial-gradient(1.5px 1.5px at 95%  52%, rgba(180,220,255,0.55), transparent),
+    radial-gradient(1.5px 1.5px at 17%  71%, rgba(180,220,255,0.70), transparent),
+    radial-gradient(1.5px 1.5px at 42%  65%, rgba(200,230,255,0.60), transparent),
+    radial-gradient(1.5px 1.5px at 63%  83%, rgba(180,220,255,0.75), transparent),
+    radial-gradient(1.5px 1.5px at 84%  74%, rgba(180,220,255,0.55), transparent),
+    radial-gradient(1.5px 1.5px at  5%  48%, rgba(200,230,255,0.65), transparent),
+    radial-gradient(1.5px 1.5px at 79%  96%, rgba(180,220,255,0.60), transparent),
+    radial-gradient(1.5px 1.5px at 46%  96%, rgba(200,230,255,0.70), transparent);
+  background-size: 100% 100%;
+  animation: twinkle-b 10s ease-in-out 3s infinite;
+}
+
+/* Shooting stars */
+.shooting-star {
+  display: none;
+}
+[data-theme="dark"] .shooting-star {
+  display: block;
+  position: fixed;
+  top: 12%;
+  left: 8%;
+  height: 1px;
+  width: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.85) 40%, rgba(180,220,255,0.6) 70%, transparent 100%);
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 0;
+  transform-origin: left center;
+  animation: shooting-star 24s ease-in-out 2s infinite;
+}
+[data-theme="dark"] .shooting-star-2 {
+  display: block;
+  position: fixed;
+  top: 32%;
+  left: 22%;
+  height: 1px;
+  width: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.7) 40%, rgba(180,220,255,0.5) 70%, transparent 100%);
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 0;
+  transform-origin: left center;
+  animation: shooting-star-2 37s ease-in-out 11s infinite;
+}
+
 /* ─── Reduced motion ─────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {

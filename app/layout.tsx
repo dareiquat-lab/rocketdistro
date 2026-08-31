@@ -36,7 +36,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans`}>
-        <Providers>{children}</Providers>
+        <Providers>
+          <div className="shooting-star" aria-hidden="true" />
+          <div className="shooting-star-2" aria-hidden="true" />
+          {children}
+        </Providers>
       </body>
     </html>
   );
