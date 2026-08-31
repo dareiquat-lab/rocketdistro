@@ -1,11 +1,9 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { useRouter } from "next/navigation";
 import { Rocket, Eye, EyeOff } from "lucide-react";
 
 function PortalLoginForm() {
-  const router = useRouter();
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -23,8 +21,7 @@ function PortalLoginForm() {
       });
       if (res.ok) {
         const { role } = await res.json();
-        router.push(role === "admin" ? "/admin" : "/staff");
-        router.refresh();
+        window.location.href = role === "admin" ? "/admin" : "/staff";
       } else {
         const data = await res.json();
         setError(data.error ?? "Invalid credentials");
