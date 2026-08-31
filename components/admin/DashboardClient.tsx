@@ -249,80 +249,75 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
       {/* Bottom row */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Recent orders */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
+        <div className="card" style={{ padding: 0 }}>
+          <div className="flex items-center justify-between px-5 pt-5 pb-3">
             <h3 className="font-bold text-sm" style={{ color: "var(--text)" }}>Recent Orders</h3>
             <a href="/admin/orders" className="text-xs flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
               View all <ArrowRight size={12} />
             </a>
           </div>
           {stats.recentOrders.length === 0 ? (
-            <p className="text-sm" style={{ color: "var(--text-dim)" }}>No orders yet.</p>
+            <p className="text-sm px-5 pb-5" style={{ color: "var(--text-dim)" }}>No orders yet.</p>
           ) : (
-            <div className="space-y-2">
-              {stats.recentOrders.map(order => (
-                <a
-                  key={order.id}
-                  href={`/admin/orders`}
-                  className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-[var(--muted)] transition-colors"
-                  style={{ textDecoration: "none" }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <p className="text-xs font-mono font-bold shrink-0" style={{ color: "var(--text-dim)" }}>{order.order_number}</p>
-                      <StatusBadge status={order.status} />
-                    </div>
-                    <p className="text-sm font-medium truncate mt-0.5" style={{ color: "var(--text)" }}>{order.customer_name}</p>
-                  </div>
-                  <div className="text-right shrink-0 w-20">
-                    <p className="text-sm font-mono font-bold" style={{ color: "var(--text)" }}>${Number(order.total).toFixed(2)}</p>
-                    <p className="text-xs truncate" style={{ color: "var(--text-dim)" }}>
-                      {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
-                    </p>
-                  </div>
-                </a>
-              ))}
+            <div className="table-container" style={{ border: "none", borderRadius: "0 0 0.875rem 0.875rem" }}>
+              <table className="table-base">
+                <thead>
+                  <tr>
+                    <th>Order #</th>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th className="text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.recentOrders.map(order => (
+                    <tr key={order.id}>
+                      <td className="font-mono text-xs whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{order.order_number}</td>
+                      <td className="whitespace-nowrap" style={{ color: "var(--text)" }}>{order.customer_name}</td>
+                      <td><StatusBadge status={order.status} /></td>
+                      <td className="text-right font-mono font-bold whitespace-nowrap" style={{ color: "var(--text)" }}>${Number(order.total).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
 
         {/* Recently updated products */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
+        <div className="card" style={{ padding: 0 }}>
+          <div className="flex items-center justify-between px-5 pt-5 pb-3">
             <h3 className="font-bold text-sm" style={{ color: "var(--text)" }}>Recently Updated Products</h3>
             <a href="/admin/inventory" className="text-xs flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
               View all <ArrowRight size={12} />
             </a>
           </div>
           {stats.recentlyUpdated.length === 0 ? (
-            <p className="text-sm" style={{ color: "var(--text-dim)" }}>No products yet.</p>
+            <p className="text-sm px-5 pb-5" style={{ color: "var(--text-dim)" }}>No products yet.</p>
           ) : (
-            <div className="space-y-2">
-              {stats.recentlyUpdated.map((p, i) => (
-                <a
-                  key={p.id}
-                  href={`/admin/products/${p.id}`}
-                  className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-[var(--muted)] transition-colors"
-                  style={{ textDecoration: "none" }}
-                >
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
-                    style={{ background: `${CHART_COLORS[i % CHART_COLORS.length]}18` }}
-                  >
-                    {stats.categoryBreakdown.find(c => c.category === p.category)?.icon ?? "📦"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>{p.product_name}</p>
-                    <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{p.category} · {p.sku}</p>
-                  </div>
-                  <div className="text-right shrink-0 w-20">
-                    <p className="text-sm font-mono font-bold" style={{ color: "var(--text)" }}>{p.quantity}</p>
-                    <p className="text-xs truncate" style={{ color: "var(--text-dim)" }}>
-                      {formatDistanceToNow(new Date(p.updated_at), { addSuffix: true })}
-                    </p>
-                  </div>
-                </a>
-              ))}
+            <div className="table-container" style={{ border: "none", borderRadius: "0 0 0.875rem 0.875rem" }}>
+              <table className="table-base">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>SKU</th>
+                    <th className="text-right">Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.recentlyUpdated.map((p) => (
+                    <tr key={p.id}>
+                      <td className="whitespace-nowrap" style={{ color: "var(--text)" }}>
+                        <a href={`/admin/products/${p.id}`} style={{ color: "inherit", textDecoration: "none" }}>{p.product_name}</a>
+                      </td>
+                      <td className="whitespace-nowrap" style={{ color: "var(--text-muted)" }}>{p.category}</td>
+                      <td className="font-mono text-xs whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{p.sku}</td>
+                      <td className="text-right font-mono font-bold" style={{ color: "var(--text)" }}>{p.quantity}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
