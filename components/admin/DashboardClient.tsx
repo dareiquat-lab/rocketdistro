@@ -268,8 +268,8 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
                   style={{ textDecoration: "none" }}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs font-mono font-bold" style={{ color: "var(--text-dim)" }}>{order.order_number}</p>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <p className="text-xs font-mono font-bold shrink-0" style={{ color: "var(--text-dim)" }}>{order.order_number}</p>
                       <StatusBadge status={order.status} />
                     </div>
                     <p className="text-sm font-medium truncate mt-0.5" style={{ color: "var(--text)" }}>{order.customer_name}</p>
@@ -313,7 +313,7 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>{p.product_name}</p>
-                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>{p.category} · {p.sku}</p>
+                    <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{p.category} · {p.sku}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-mono font-bold" style={{ color: "var(--text)" }}>{p.quantity}</p>
