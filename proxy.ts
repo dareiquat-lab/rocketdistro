@@ -16,14 +16,15 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  if (pathname === "/staff/login") return NextResponse.next();
-
   if (pathname.startsWith("/staff")) {
     const adminToken = request.cookies.get(ADMIN_COOKIE)?.value;
+    // Admin visiting any /staff page gets sent to admin dashboard
+    if (adminToken) return NextResponse.redirect(new URL("/admin", request.url));
+    // Login page is always accessible for staff
+    if (pathname === "/staff/login") return NextResponse.next();
+    // All other /staff pages require a staff token
     const staffToken = request.cookies.get(STAFF_COOKIE)?.value;
-    if (!adminToken && !staffToken) {
-      return NextResponse.redirect(new URL("/staff/login", request.url));
-    }
+    if (!staffToken) return NextResponse.redirect(new URL("/staff/login", request.url));
   }
 
   return NextResponse.next();

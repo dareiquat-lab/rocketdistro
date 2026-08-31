@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Package, Layers, AlertTriangle, ShoppingCart, DollarSign, TrendingUp, RefreshCw, Users, ArrowRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { DashboardStats } from "@/types";
@@ -39,6 +40,7 @@ function StatusBadge({ status }: { status: string }) {
 export function DashboardClient({ initialStats }: DashboardClientProps) {
   const [stats, setStats] = useState(initialStats);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const refresh = async () => {
     setLoading(true);
@@ -56,6 +58,7 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
       value: stats.totalProducts.toLocaleString(),
       icon: <Package size={18} />,
       color: "#2563eb",
+      href: "/admin/inventory",
       sub: `${stats.totalCategories} categories`,
     },
     {
@@ -63,6 +66,7 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
       value: stats.totalUnits.toLocaleString(),
       icon: <Layers size={18} />,
       color: "#7c3aed",
+      href: "/admin/inventory",
       sub: "in inventory",
     },
     {
@@ -94,6 +98,7 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
       value: `$${stats.monthlyRevenue.toFixed(2)}`,
       icon: <DollarSign size={18} />,
       color: "#16a34a",
+      href: "/admin/profit",
       sub: "this month",
     },
     {
@@ -101,6 +106,7 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
       value: `$${stats.monthlyProfit.toFixed(2)}`,
       icon: <TrendingUp size={18} />,
       color: "#4f46e5",
+      href: "/admin/profit",
       sub: "from completed",
     },
   ];
@@ -134,7 +140,7 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
             key={card.label}
             href={card.href}
             className="card group"
-            style={{ textDecoration: "none", borderLeft: `3px solid ${card.color}`, cursor: card.href ? "pointer" : "default" }}
+            style={{ textDecoration: "none", borderLeft: `3px solid ${card.color}`, cursor: "pointer" }}
           >
             <div
               className="inline-flex p-2 rounded-lg mb-3"
@@ -152,7 +158,7 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
       {/* Charts row */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Category bar chart */}
-        <div className="card">
+        <div className="card" style={{ cursor: "pointer" }} onClick={() => router.push("/admin/inventory")}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-sm" style={{ color: "var(--text)" }}>Products by Category</h3>
             <a href="/admin/inventory" className="text-xs flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
@@ -199,7 +205,7 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
         </div>
 
         {/* Order status pie */}
-        <div className="card">
+        <div className="card" style={{ cursor: "pointer" }} onClick={() => router.push("/admin/orders")}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-sm" style={{ color: "var(--text)" }}>Order Status Breakdown</h3>
             <a href="/admin/orders" className="text-xs flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
@@ -271,7 +277,7 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
                 </thead>
                 <tbody>
                   {stats.recentOrders.map(order => (
-                    <tr key={order.id}>
+                    <tr key={order.id} style={{ cursor: "pointer" }} onClick={() => router.push("/admin/orders")}>
                       <td className="font-mono text-xs whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{order.order_number}</td>
                       <td className="whitespace-nowrap" style={{ color: "var(--text)" }}>{order.customer_name}</td>
                       <td><StatusBadge status={order.status} /></td>
@@ -307,10 +313,8 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
                 </thead>
                 <tbody>
                   {stats.recentlyUpdated.map((p) => (
-                    <tr key={p.id}>
-                      <td className="whitespace-nowrap" style={{ color: "var(--text)" }}>
-                        <a href={`/admin/products/${p.id}`} style={{ color: "inherit", textDecoration: "none" }}>{p.product_name}</a>
-                      </td>
+                    <tr key={p.id} style={{ cursor: "pointer" }} onClick={() => router.push(`/admin/products/${p.id}`)}>
+                      <td className="whitespace-nowrap" style={{ color: "var(--text)" }}>{p.product_name}</td>
                       <td className="whitespace-nowrap" style={{ color: "var(--text-muted)" }}>{p.category}</td>
                       <td className="font-mono text-xs whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{p.sku}</td>
                       <td className="text-right font-mono font-bold" style={{ color: "var(--text)" }}>{p.quantity}</td>
