@@ -32,7 +32,7 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
               <div>
                 <p className="font-semibold text-sm mb-3" style={{ color: "var(--text)" }}>For Business</p>
                 <div className="space-y-2">
-                  <a href="/admin" className="block text-sm hover:opacity-70 transition-opacity" style={{ color: "var(--text-muted)", textDecoration: "none" }}>Staff Portal</a>
+                  <a href="/staff/login" className="block text-sm hover:opacity-70 transition-opacity" style={{ color: "var(--text-muted)", textDecoration: "none" }}>Staff Portal</a>
                   <p className="text-sm" style={{ color: "var(--text-muted)" }}>Wholesale only</p>
                 </div>
               </div>

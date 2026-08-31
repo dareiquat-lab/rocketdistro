@@ -2,9 +2,9 @@
 
 import { useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
-import { Rocket, Eye, EyeOff, Users } from "lucide-react";
+import { Rocket, Eye, EyeOff } from "lucide-react";
 
-function StaffLoginForm() {
+function PortalLoginForm() {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -16,13 +16,14 @@ function StaffLoginForm() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/staff/auth", {
+      const res = await fetch("/api/portal/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
       if (res.ok) {
-        router.push("/staff");
+        const { role } = await res.json();
+        router.push(role === "admin" ? "/admin" : "/staff");
         router.refresh();
       } else {
         const data = await res.json();
@@ -50,7 +51,7 @@ function StaffLoginForm() {
         <div className="text-center mb-8">
           <div className="relative inline-block mb-5">
             <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto" style={{ background: "var(--accent)" }}>
-              <Users size={38} color="white" />
+              <Rocket size={38} color="white" />
             </div>
             <div className="absolute inset-0 rounded-2xl" style={{
               boxShadow: "0 0 0 8px color-mix(in srgb, var(--accent) 12%, transparent)",
@@ -63,7 +64,7 @@ function StaffLoginForm() {
         <div className="card">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="label">Staff Passkey</label>
+              <label className="label">Passkey</label>
               <div className="relative">
                 <input
                   type={showPass ? "text" : "password"}
@@ -103,10 +104,10 @@ function StaffLoginForm() {
   );
 }
 
-export default function StaffLoginPage() {
+export default function PortalLoginPage() {
   return (
     <Suspense>
-      <StaffLoginForm />
+      <PortalLoginForm />
     </Suspense>
   );
 }

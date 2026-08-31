@@ -4,14 +4,15 @@ import { ADMIN_COOKIE, STAFF_COOKIE } from "@/lib/auth-utils";
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === "/admin/login") return NextResponse.next();
+  // Redirect old admin login to unified portal
+  if (pathname === "/admin/login") {
+    return NextResponse.redirect(new URL("/staff/login", request.url));
+  }
 
   if (pathname.startsWith("/admin")) {
     const token = request.cookies.get(ADMIN_COOKIE)?.value;
     if (!token) {
-      const loginUrl = new URL("/admin/login", request.url);
-      loginUrl.searchParams.set("from", pathname);
-      return NextResponse.redirect(loginUrl);
+      return NextResponse.redirect(new URL("/staff/login", request.url));
     }
   }
 
