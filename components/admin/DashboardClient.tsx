@@ -114,7 +114,7 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
   const barData = stats.categoryBreakdown.filter(c => c.count > 0);
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto overflow-x-hidden">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -274,9 +274,9 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
                     </div>
                     <p className="text-sm font-medium truncate mt-0.5" style={{ color: "var(--text)" }}>{order.customer_name}</p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0 w-20">
                     <p className="text-sm font-mono font-bold" style={{ color: "var(--text)" }}>${Number(order.total).toFixed(2)}</p>
-                    <p className="text-xs" style={{ color: "var(--text-dim)" }}>
+                    <p className="text-xs truncate" style={{ color: "var(--text-dim)" }}>
                       {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
                     </p>
                   </div>
@@ -315,9 +315,9 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
                     <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>{p.product_name}</p>
                     <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{p.category} · {p.sku}</p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0 w-20">
                     <p className="text-sm font-mono font-bold" style={{ color: "var(--text)" }}>{p.quantity}</p>
-                    <p className="text-xs" style={{ color: "var(--text-dim)" }}>
+                    <p className="text-xs truncate" style={{ color: "var(--text-dim)" }}>
                       {formatDistanceToNow(new Date(p.updated_at), { addSuffix: true })}
                     </p>
                   </div>

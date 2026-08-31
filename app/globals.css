@@ -84,12 +84,16 @@
 
 * { box-sizing: border-box; }
 
+html {
+  overflow-x: hidden;
+}
 body {
   background-color: var(--background);
   color: var(--text);
   font-family: var(--font-sans);
   transition: background-color 0.3s, color 0.3s;
   overflow-x: hidden;
+  max-width: 100%;
 }
 
 /* ─── Buttons ────────────────────────────────────────────────── */
