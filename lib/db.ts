@@ -1069,6 +1069,79 @@ export async function getMonthlyReportData() {
   return { orders: ordersRows, products: productsRows, statusBreakdown: statusRows, lowStock: lowStockRows };
 }
 
+// ─── Supplier Invoices ────────────────────────────────────────────────────────
+
+export async function ensureSupplierInvoicesTable() {
+  await sql`
+    CREATE TABLE IF NOT EXISTS supplier_invoices (
+      id SERIAL PRIMARY KEY,
+      invoice_number TEXT,
+      supplier_name TEXT NOT NULL,
+      invoice_date TEXT,
+      total_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+      notes TEXT,
+      import_source TEXT NOT NULL DEFAULT 'excel',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_supplier_invoices_created_at ON supplier_invoices(created_at DESC)`;
+}
+
+export async function ensureSupplierInvoiceItemsTable() {
+  await sql`
+    CREATE TABLE IF NOT EXISTS supplier_invoice_items (
+      id SERIAL PRIMARY KEY,
+      invoice_id INTEGER NOT NULL REFERENCES supplier_invoices(id) ON DELETE CASCADE,
+      product_name TEXT NOT NULL,
+      category TEXT,
+      quantity NUMERIC(10,2) NOT NULL DEFAULT 1,
+      unit_cost NUMERIC(10,2) NOT NULL DEFAULT 0
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_supplier_invoice_items_invoice_id ON supplier_invoice_items(invoice_id)`;
+}
+
+export async function createSupplierInvoice(data: {
+  invoice_number?: string | null;
+  supplier_name: string;
+  invoice_date?: string | null;
+  total_amount: number;
+  notes?: string | null;
+  import_source?: string;
+  items: { product_name: string; category?: string | null; quantity: number; unit_cost: number }[];
+}) {
+  await ensureSupplierInvoicesTable();
+  await ensureSupplierInvoiceItemsTable();
+  const rows = await sql`
+    INSERT INTO supplier_invoices (invoice_number, supplier_name, invoice_date, total_amount, notes, import_source)
+    VALUES (${data.invoice_number ?? null}, ${data.supplier_name || "Unknown Supplier"}, ${data.invoice_date ?? null}, ${data.total_amount}, ${data.notes ?? null}, ${data.import_source ?? "excel"})
+    RETURNING *
+  `;
+  const invoice = rows[0];
+  for (const item of data.items) {
+    await sql`
+      INSERT INTO supplier_invoice_items (invoice_id, product_name, category, quantity, unit_cost)
+      VALUES (${invoice.id as number}, ${item.product_name}, ${item.category ?? null}, ${item.quantity}, ${item.unit_cost})
+    `;
+  }
+  return invoice;
+}
+
+export async function getSupplierInvoices(limit = 100) {
+  await ensureSupplierInvoicesTable();
+  const rows = await sql`SELECT * FROM supplier_invoices ORDER BY created_at DESC LIMIT ${limit}`;
+  return rows;
+}
+
+export async function getSupplierInvoiceById(id: number) {
+  await ensureSupplierInvoicesTable();
+  await ensureSupplierInvoiceItemsTable();
+  const rows = await sql`SELECT * FROM supplier_invoices WHERE id = ${id}`;
+  if (!rows[0]) return null;
+  const items = await sql`SELECT * FROM supplier_invoice_items WHERE invoice_id = ${id} ORDER BY id`;
+  return { ...rows[0], items };
+}
+
 // ─── Invoice Activity ─────────────────────────────────────────────────────────
 
 export async function logInvoiceActivity(data: {

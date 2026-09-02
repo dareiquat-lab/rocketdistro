@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Sparkles, Upload, X, Check, AlertTriangle, FileText } from "lucide-react";
+import { Sparkles, Upload, X, Check, AlertTriangle, FileText, Table2 } from "lucide-react";
 
-type Mode = "order" | "invoice" | "client";
+type Mode = "order" | "invoice" | "client" | "excel";
 
 interface ParsedOrder {
   client: { first_name: string; last_name: string; phone: string | null };
@@ -42,6 +42,7 @@ export function ImportClient() {
   const [committed, setCommitted] = useState(false);
   const [error, setError] = useState("");
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
+  const [excelData, setExcelData] = useState<{ supplier_name: string; invoice_number: string; invoice_date: string; total: number; items: { name: string; category: string; quantity: number; unit_cost: number }[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useState(() => {
@@ -49,6 +50,97 @@ export function ImportClient() {
   });
 
   const removeFile = (i: number) => setFiles(f => f.filter((_, idx) => idx !== i));
+
+  const handleExcelParse = async () => {
+    if (files.length === 0) return;
+    setParsing(true);
+    setError("");
+    setExcelData(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", files[0]);
+      const res = await fetch("/api/admin/excel-import", { method: "POST", body: formData });
+      if (res.ok) {
+        const data = await res.json();
+        setExcelData(data);
+      } else {
+        const err = await res.json();
+        setError(err.error ?? "Parse failed");
+      }
+    } catch {
+      setError("Network error");
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const handleCommitExcel = async () => {
+    if (!excelData) return;
+    setCommitting(true);
+    try {
+      // Save as supplier invoice
+      await fetch("/api/admin/supplier-invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoice_number: excelData.invoice_number || null,
+          supplier_name: excelData.supplier_name || "Unknown Supplier",
+          invoice_date: excelData.invoice_date || null,
+          total_amount: excelData.total,
+          import_source: "excel",
+          items: excelData.items,
+        }),
+      });
+      // Also update inventory
+      for (const item of excelData.items) {
+        const searchRes = await fetch(`/api/products?admin=true&search=${encodeURIComponent(item.name)}&limit=5`);
+        let productId: number | null = null;
+        if (searchRes.ok) {
+          const data = await searchRes.json();
+          const match = (data.products ?? []).find((p: { product_name: string }) =>
+            p.product_name.toLowerCase() === item.name.toLowerCase()
+          );
+          if (match) {
+            productId = match.id;
+            await fetch(`/api/products/${match.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ quantity: match.quantity + item.quantity, cost: item.unit_cost }),
+            });
+          }
+        }
+        if (!productId) {
+          const catRes = await fetch("/api/admin/categories");
+          const cats = catRes.ok ? await catRes.json() : [];
+          const matchedCat = (Array.isArray(cats) ? cats : []).find((c: { name: string }) =>
+            c.name.toLowerCase() === (item.category ?? "").toLowerCase()
+          );
+          if (!matchedCat && item.category) {
+            await fetch("/api/admin/categories", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: item.category, icon: "📦" }),
+            });
+          }
+          await fetch("/api/products", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              product_name: item.name,
+              category: item.category || "General",
+              sku: `IMP-${Date.now()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
+              quantity: item.quantity,
+              price: 0,
+              cost: item.unit_cost,
+            }),
+          });
+        }
+      }
+      setCommitted(true);
+    } finally {
+      setCommitting(false);
+    }
+  };
 
   const handleParse = async () => {
     if (files.length === 0) return;
@@ -198,15 +290,16 @@ export function ImportClient() {
       )}
 
       {/* Mode selector */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {([
           { value: "order" as Mode, label: "Order Screenshot", icon: "💬" },
           { value: "invoice" as Mode, label: "Supplier Invoice", icon: "📋" },
           { value: "client" as Mode, label: "Client Document", icon: "👤" },
+          { value: "excel" as Mode, label: "Excel Invoice", icon: "📊" },
         ]).map(m => (
           <button
             key={m.value}
-            onClick={() => { setMode(m.value); setParsed(null); setCommitted(false); }}
+            onClick={() => { setMode(m.value); setParsed(null); setExcelData(null); setCommitted(false); setFiles([]); setError(""); }}
             className="flex-1 py-3 rounded-xl text-sm font-medium transition-colors"
             style={{
               background: mode === m.value ? "var(--accent)" : "var(--surface)",
@@ -220,7 +313,7 @@ export function ImportClient() {
       </div>
 
       {/* Upload area */}
-      {!parsed && (
+      {!parsed && !excelData && (
         <div className="card space-y-4">
           <div
             className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer hover:opacity-80 transition-opacity"
@@ -229,13 +322,22 @@ export function ImportClient() {
             onDrop={e => { e.preventDefault(); setFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)]); }}
             onDragOver={e => e.preventDefault()}
           >
-            <Upload size={32} className="mx-auto mb-3" style={{ color: "var(--text-dim)" }} />
+            {mode === "excel" ? <Table2 size={32} className="mx-auto mb-3" style={{ color: "var(--text-dim)" }} /> : <Upload size={32} className="mx-auto mb-3" style={{ color: "var(--text-dim)" }} />}
             <p className="font-medium" style={{ color: "var(--text)" }}>
-              {mode === "order" ? "Upload chat screenshots" : mode === "invoice" ? "Upload invoice images or PDFs" : "Upload business documents"}
+              {mode === "order" ? "Upload chat screenshots" : mode === "invoice" ? "Upload invoice images or PDFs" : mode === "excel" ? "Upload Excel invoice file" : "Upload business documents"}
             </p>
-            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>JPEG, PNG, WebP, or PDF · Multiple files allowed</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+              {mode === "excel" ? ".xlsx or .xls · Single file" : "JPEG, PNG, WebP, or PDF · Multiple files allowed"}
+            </p>
           </div>
-          <input ref={fileRef} type="file" multiple accept="image/*,.pdf" className="hidden" onChange={e => setFiles(prev => [...prev, ...Array.from(e.target.files ?? [])])} />
+          <input
+            ref={fileRef}
+            type="file"
+            multiple={mode !== "excel"}
+            accept={mode === "excel" ? ".xlsx,.xls" : "image/*,.pdf"}
+            className="hidden"
+            onChange={e => setFiles(mode === "excel" ? Array.from(e.target.files ?? []).slice(0, 1) : prev => [...prev, ...Array.from(e.target.files ?? [])])}
+          />
 
           {files.length > 0 && (
             <div className="space-y-2">
@@ -251,14 +353,25 @@ export function ImportClient() {
 
           {error && <p className="text-sm" style={{ color: "var(--danger)" }}>{error}</p>}
 
-          <button
-            className="btn-primary w-full justify-center"
-            onClick={handleParse}
-            disabled={parsing || files.length === 0 || !aiAvailable}
-          >
-            <Sparkles size={14} />
-            {parsing ? "Parsing with AI…" : "Parse with Claude AI"}
-          </button>
+          {mode === "excel" ? (
+            <button
+              className="btn-primary w-full justify-center"
+              onClick={handleExcelParse}
+              disabled={parsing || files.length === 0}
+            >
+              <Table2 size={14} />
+              {parsing ? "Reading Excel…" : "Read Excel File"}
+            </button>
+          ) : (
+            <button
+              className="btn-primary w-full justify-center"
+              onClick={handleParse}
+              disabled={parsing || files.length === 0 || !aiAvailable}
+            >
+              <Sparkles size={14} />
+              {parsing ? "Parsing with AI…" : "Parse with Claude AI"}
+            </button>
+          )}
         </div>
       )}
 
@@ -347,6 +460,54 @@ export function ImportClient() {
         </div>
       )}
 
+      {/* Excel results */}
+      {excelData && !committed && (
+        <div className="card space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold" style={{ color: "var(--text)" }}>Excel Invoice Preview</h3>
+            <button className="btn-secondary text-xs py-1" onClick={() => { setExcelData(null); setFiles([]); }}>Start Over</button>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Supplier</p>
+              <p style={{ color: "var(--text)" }}>{excelData.supplier_name || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Invoice #</p>
+              <p style={{ color: "var(--text)" }}>{excelData.invoice_number || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Date</p>
+              <p style={{ color: "var(--text)" }}>{excelData.invoice_date || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Total</p>
+              <p className="font-mono" style={{ color: "var(--text)" }}>${excelData.total.toFixed(2)}</p>
+            </div>
+          </div>
+          <div className="table-container">
+            <table className="table-base">
+              <thead><tr><th>Product</th><th>Category</th><th>Qty</th><th>Unit Cost</th><th>Total</th></tr></thead>
+              <tbody>
+                {excelData.items.map((item, i) => (
+                  <tr key={i}>
+                    <td style={{ color: "var(--text)" }}>{item.name}</td>
+                    <td style={{ color: "var(--text-muted)" }}>{item.category || "—"}</td>
+                    <td className="font-mono">{item.quantity}</td>
+                    <td className="font-mono">${item.unit_cost.toFixed(2)}</td>
+                    <td className="font-mono">${(item.quantity * item.unit_cost).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs" style={{ color: "var(--text-dim)" }}>This will save the invoice to Supplier Invoices and update inventory quantities.</p>
+          <button className="btn-primary w-full justify-center" onClick={handleCommitExcel} disabled={committing}>
+            <Check size={14} /> {committing ? "Importing…" : `Import ${excelData.items.length} Items`}
+          </button>
+        </div>
+      )}
+
       {/* Success */}
       {committed && (
         <div className="card text-center py-8">
@@ -355,9 +516,9 @@ export function ImportClient() {
           </div>
           <h3 className="font-bold text-lg mb-2" style={{ color: "var(--text)" }}>Done!</h3>
           <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
-            {mode === "order" ? "Orders created successfully." : mode === "invoice" ? "Products imported successfully." : "Clients saved successfully."}
+            {mode === "order" ? "Orders created successfully." : mode === "invoice" ? "Products imported successfully." : mode === "excel" ? "Invoice saved and inventory updated." : "Clients saved successfully."}
           </p>
-          <button className="btn-primary" onClick={() => { setParsed(null); setFiles([]); setCommitted(false); }}>Import More</button>
+          <button className="btn-primary" onClick={() => { setParsed(null); setExcelData(null); setFiles([]); setCommitted(false); }}>Import More</button>
         </div>
       )}
     </div>

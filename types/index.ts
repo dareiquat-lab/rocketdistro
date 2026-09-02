@@ -112,3 +112,24 @@ export const ORDER_STATUSES = [
 
 export const CLIENT_TYPES = ["Retailer", "Store Owner", "Distributor", "Supplier", "Chain Store", "Other"] as const;
 export type ClientType = typeof CLIENT_TYPES[number];
+
+export interface SupplierInvoiceItem {
+  id: number;
+  invoice_id: number;
+  product_name: string;
+  category: string | null;
+  quantity: number;
+  unit_cost: number;
+}
+
+export interface SupplierInvoice {
+  id: number;
+  invoice_number: string | null;
+  supplier_name: string;
+  invoice_date: string | null;
+  total_amount: number;
+  notes: string | null;
+  import_source: string;
+  created_at: string;
+  items?: SupplierInvoiceItem[];
+}
