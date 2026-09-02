@@ -167,7 +167,7 @@ function SupplierInvoicesTab() {
             {loading ? (
               <tr><td colSpan={7} className="py-12 text-center" style={{ color: "var(--text-dim)" }}>Loading…</td></tr>
             ) : invoices.length === 0 ? (
-              <tr><td colSpan={7} className="py-12 text-center" style={{ color: "var(--text-dim)" }}>No supplier invoices yet. Import an Excel file to get started.</td></tr>
+              <tr><td colSpan={7} className="py-12 text-center" style={{ color: "var(--text-dim)" }}>No supplier invoices yet. Use the Import Invoice button to upload an image, PDF, or Excel file.</td></tr>
             ) : invoices.map(inv => (
               <>
                 <tr key={inv.id} className="cursor-pointer" onClick={() => toggleExpand(inv.id)}>
