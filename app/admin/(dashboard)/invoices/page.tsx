@@ -147,7 +147,7 @@ function SupplierInvoicesTab() {
     <div className="space-y-4">
       <div className="flex justify-end">
         <a href="/admin/import" className="btn-primary text-sm">
-          <FileSpreadsheet size={14} /> Import Excel Invoice
+          <FileSpreadsheet size={14} /> Import Invoice
         </a>
       </div>
       <div className="table-container">

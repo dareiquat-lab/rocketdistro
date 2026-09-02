@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Sparkles, Upload, X, Check, AlertTriangle, FileText, Table2 } from "lucide-react";
+import { Sparkles, Upload, X, Check, AlertTriangle, FileText } from "lucide-react";
 
-type Mode = "order" | "invoice" | "client" | "excel";
+type Mode = "order" | "invoice" | "client";
 
 interface ParsedOrder {
   client: { first_name: string; last_name: string; phone: string | null };
@@ -13,11 +13,13 @@ interface ParsedOrder {
   message_fingerprint: string;
 }
 
-interface ParsedInvoiceItem {
-  name: string;
-  category: string;
-  quantity: number;
-  unit_cost: number;
+interface ParsedInvoiceData {
+  supplier_name: string;
+  invoice_number: string;
+  invoice_date: string;
+  total: number;
+  source: "excel" | "ai";
+  items: { name: string; category: string; quantity: number; unit_cost: number }[];
 }
 
 interface ParsedClient {
@@ -48,16 +50,20 @@ interface ClientResolution {
   checked: boolean;
 }
 
+function isExcelFile(f: File) {
+  return /\.(xlsx|xls)$/i.test(f.name) || f.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || f.type === "application/vnd.ms-excel";
+}
+
 export function ImportClient() {
   const [mode, setMode] = useState<Mode>("order");
   const [files, setFiles] = useState<File[]>([]);
   const [parsing, setParsing] = useState(false);
   const [parsed, setParsed] = useState<unknown>(null);
+  const [invoiceData, setInvoiceData] = useState<ParsedInvoiceData | null>(null);
   const [committing, setCommitting] = useState(false);
   const [committed, setCommitted] = useState(false);
   const [error, setError] = useState("");
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
-  const [excelData, setExcelData] = useState<{ supplier_name: string; invoice_number: string; invoice_date: string; total: number; items: { name: string; category: string; quantity: number; unit_cost: number }[] } | null>(null);
   const [clientResolutions, setClientResolutions] = useState<ClientResolution[]>([]);
   const [checkingDupes, setCheckingDupes] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -66,96 +72,57 @@ export function ImportClient() {
     fetch("/api/ai-parse/status").then(r => r.json()).then(d => setAiAvailable(d.configured));
   });
 
+  const reset = () => {
+    setParsed(null);
+    setInvoiceData(null);
+    setClientResolutions([]);
+    setFiles([]);
+    setCommitted(false);
+    setError("");
+  };
+
   const removeFile = (i: number) => setFiles(f => f.filter((_, idx) => idx !== i));
 
-  const handleExcelParse = async () => {
+  // Smart invoice parser — routes to Excel or AI based on file type
+  const handleInvoiceParse = async () => {
     if (files.length === 0) return;
     setParsing(true);
     setError("");
-    setExcelData(null);
+    setInvoiceData(null);
     try {
-      const formData = new FormData();
-      formData.append("file", files[0]);
-      const res = await fetch("/api/admin/excel-import", { method: "POST", body: formData });
-      if (res.ok) {
-        const data = await res.json();
-        setExcelData(data);
+      const excelFile = files.find(isExcelFile);
+      if (excelFile) {
+        const formData = new FormData();
+        formData.append("file", excelFile);
+        const res = await fetch("/api/admin/excel-import", { method: "POST", body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          setInvoiceData({ ...data, source: "excel" });
+        } else {
+          const err = await res.json();
+          setError(err.error ?? "Could not read Excel file");
+        }
       } else {
-        const err = await res.json();
-        setError(err.error ?? "Parse failed");
+        // Image / PDF path via AI
+        const formData = new FormData();
+        formData.append("mode", "invoice");
+        files.forEach(f => formData.append("files", f));
+        const res = await fetch("/api/ai-parse", { method: "POST", body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          const allItems = (data.results ?? []).flatMap((r: { supplier?: string; items?: { name: string; category: string; quantity: number; unit_cost: number }[] }) => r.items ?? []);
+          const supplierName = (data.results ?? []).find((r: { supplier?: string }) => r.supplier)?.supplier ?? "";
+          const total = allItems.reduce((s: number, i: { quantity: number; unit_cost: number }) => s + i.quantity * i.unit_cost, 0);
+          setInvoiceData({ supplier_name: supplierName, invoice_number: "", invoice_date: "", items: allItems, total, source: "ai" });
+        } else {
+          const err = await res.json();
+          setError(err.error ?? "Parse failed");
+        }
       }
     } catch {
       setError("Network error");
     } finally {
       setParsing(false);
-    }
-  };
-
-  const handleCommitExcel = async () => {
-    if (!excelData) return;
-    setCommitting(true);
-    try {
-      // Save as supplier invoice
-      await fetch("/api/admin/supplier-invoices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          invoice_number: excelData.invoice_number || null,
-          supplier_name: excelData.supplier_name || "Unknown Supplier",
-          invoice_date: excelData.invoice_date || null,
-          total_amount: excelData.total,
-          import_source: "excel",
-          items: excelData.items,
-        }),
-      });
-      // Also update inventory
-      for (const item of excelData.items) {
-        const searchRes = await fetch(`/api/products?admin=true&search=${encodeURIComponent(item.name)}&limit=5`);
-        let productId: number | null = null;
-        if (searchRes.ok) {
-          const data = await searchRes.json();
-          const match = (data.products ?? []).find((p: { product_name: string }) =>
-            p.product_name.toLowerCase() === item.name.toLowerCase()
-          );
-          if (match) {
-            productId = match.id;
-            await fetch(`/api/products/${match.id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ quantity: match.quantity + item.quantity, cost: item.unit_cost }),
-            });
-          }
-        }
-        if (!productId) {
-          const catRes = await fetch("/api/admin/categories");
-          const cats = catRes.ok ? await catRes.json() : [];
-          const matchedCat = (Array.isArray(cats) ? cats : []).find((c: { name: string }) =>
-            c.name.toLowerCase() === (item.category ?? "").toLowerCase()
-          );
-          if (!matchedCat && item.category) {
-            await fetch("/api/admin/categories", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ name: item.category, icon: "📦" }),
-            });
-          }
-          await fetch("/api/products", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              product_name: item.name,
-              category: item.category || "General",
-              sku: `IMP-${Date.now()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
-              quantity: item.quantity,
-              price: 0,
-              cost: item.unit_cost,
-            }),
-          });
-        }
-      }
-      setCommitted(true);
-    } finally {
-      setCommitting(false);
     }
   };
 
@@ -170,8 +137,7 @@ export function ImportClient() {
       files.forEach(f => formData.append("files", f));
       const res = await fetch("/api/ai-parse", { method: "POST", body: formData });
       if (res.ok) {
-        const data = await res.json();
-        setParsed(data);
+        setParsed(await res.json());
       } else {
         const err = await res.json();
         setError(err.error ?? "Parse failed");
@@ -213,15 +179,28 @@ export function ImportClient() {
     }
   };
 
-  const handleCommitInvoice = async (items: ParsedInvoiceItem[]) => {
+  const handleCommitInvoice = async () => {
+    if (!invoiceData) return;
     setCommitting(true);
     try {
-      for (const item of items) {
+      await fetch("/api/admin/supplier-invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoice_number: invoiceData.invoice_number || null,
+          supplier_name: invoiceData.supplier_name || "Unknown Supplier",
+          invoice_date: invoiceData.invoice_date || null,
+          total_amount: invoiceData.total,
+          import_source: invoiceData.source,
+          items: invoiceData.items,
+        }),
+      });
+      for (const item of invoiceData.items) {
         const searchRes = await fetch(`/api/products?admin=true&search=${encodeURIComponent(item.name)}&limit=5`);
         let productId: number | null = null;
         if (searchRes.ok) {
           const data = await searchRes.json();
-          const match = (data.products ?? []).find((p: { product_name: string }) =>
+          const match = (data.products ?? []).find((p: { product_name: string; quantity: number }) =>
             p.product_name.toLowerCase() === item.name.toLowerCase()
           );
           if (match) {
@@ -234,7 +213,7 @@ export function ImportClient() {
           }
         }
         if (!productId) {
-          const catRes = await fetch(`/api/admin/categories`);
+          const catRes = await fetch("/api/admin/categories");
           const cats = catRes.ok ? await catRes.json() : [];
           const matchedCat = (Array.isArray(cats) ? cats : []).find((c: { name: string }) =>
             c.name.toLowerCase() === (item.category ?? "").toLowerCase()
@@ -304,19 +283,17 @@ export function ImportClient() {
           notes: r.parsed.notes,
         };
         if (r.action === "merge" && r.existing) {
-          // Update existing with any non-null new values
-          const merged = {
-            business_name: r.parsed.business_name || r.existing.business_name,
-            contact_name: r.parsed.contact_name || r.existing.contact_name,
-            phone: r.parsed.phone || r.existing.phone,
-            email: r.parsed.email || r.existing.email,
-            address: r.parsed.address || r.existing.address,
-            notes: [r.existing.notes, r.parsed.notes].filter(Boolean).join(" | ") || null,
-          };
           await fetch(`/api/admin/clients/${r.existing.id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(merged),
+            body: JSON.stringify({
+              business_name: r.parsed.business_name || r.existing.business_name,
+              contact_name: r.parsed.contact_name || r.existing.contact_name,
+              phone: r.parsed.phone || r.existing.phone,
+              email: r.parsed.email || r.existing.email,
+              address: r.parsed.address || r.existing.address,
+              notes: [r.existing.notes, r.parsed.notes].filter(Boolean).join(" | ") || null,
+            }),
           });
         } else {
           await fetch("/api/admin/clients", {
@@ -333,27 +310,33 @@ export function ImportClient() {
   };
 
   const results = parsed as { results?: unknown[]; mode?: string } | null;
+  const hasExcel = files.some(isExcelFile);
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
-      {!aiAvailable && aiAvailable !== null && (
+      {!aiAvailable && aiAvailable !== null && mode !== "invoice" && (
         <div className="flex items-center gap-3 p-4 rounded-xl" style={{ background: "rgba(217,119,6,0.1)", border: "1px solid var(--warning)" }}>
           <AlertTriangle size={18} style={{ color: "var(--warning)" }} />
           <p className="text-sm" style={{ color: "var(--warning)" }}>ANTHROPIC_API_KEY is not set. AI parsing is unavailable.</p>
         </div>
       )}
+      {!aiAvailable && aiAvailable !== null && mode === "invoice" && (
+        <div className="flex items-center gap-3 p-4 rounded-xl" style={{ background: "rgba(217,119,6,0.1)", border: "1px solid var(--warning)" }}>
+          <AlertTriangle size={18} style={{ color: "var(--warning)" }} />
+          <p className="text-sm" style={{ color: "var(--warning)" }}>ANTHROPIC_API_KEY is not set. Image/PDF parsing is unavailable. Excel files can still be imported.</p>
+        </div>
+      )}
 
       {/* Mode selector */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2">
         {([
           { value: "order" as Mode, label: "Order Screenshot", icon: "💬" },
           { value: "invoice" as Mode, label: "Supplier Invoice", icon: "📋" },
           { value: "client" as Mode, label: "Client Document", icon: "👤" },
-          { value: "excel" as Mode, label: "Excel Invoice", icon: "📊" },
         ]).map(m => (
           <button
             key={m.value}
-            onClick={() => { setMode(m.value); setParsed(null); setExcelData(null); setClientResolutions([]); setCommitted(false); setFiles([]); setError(""); }}
+            onClick={() => { setMode(m.value); reset(); }}
             className="flex-1 py-3 rounded-xl text-sm font-medium transition-colors"
             style={{
               background: mode === m.value ? "var(--accent)" : "var(--surface)",
@@ -367,7 +350,7 @@ export function ImportClient() {
       </div>
 
       {/* Upload area */}
-      {!parsed && !excelData && (
+      {!parsed && !invoiceData && (
         <div className="card space-y-4">
           <div
             className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer hover:opacity-80 transition-opacity"
@@ -376,21 +359,21 @@ export function ImportClient() {
             onDrop={e => { e.preventDefault(); setFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)]); }}
             onDragOver={e => e.preventDefault()}
           >
-            {mode === "excel" ? <Table2 size={32} className="mx-auto mb-3" style={{ color: "var(--text-dim)" }} /> : <Upload size={32} className="mx-auto mb-3" style={{ color: "var(--text-dim)" }} />}
+            <Upload size={32} className="mx-auto mb-3" style={{ color: "var(--text-dim)" }} />
             <p className="font-medium" style={{ color: "var(--text)" }}>
-              {mode === "order" ? "Upload chat screenshots" : mode === "invoice" ? "Upload invoice images or PDFs" : mode === "excel" ? "Upload Excel invoice file" : "Upload business documents"}
+              {mode === "order" ? "Upload chat screenshots" : mode === "invoice" ? "Upload invoice images, PDFs, or Excel files" : "Upload business documents"}
             </p>
             <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-              {mode === "excel" ? ".xlsx or .xls · Single file" : "JPEG, PNG, WebP, or PDF · Multiple files allowed"}
+              {mode === "invoice" ? "JPEG, PNG, WebP, PDF, or .xlsx / .xls · Multiple files allowed" : "JPEG, PNG, WebP, or PDF · Multiple files allowed"}
             </p>
           </div>
           <input
             ref={fileRef}
             type="file"
-            multiple={mode !== "excel"}
-            accept={mode === "excel" ? ".xlsx,.xls" : "image/*,.pdf"}
+            multiple
+            accept={mode === "invoice" ? "image/*,.pdf,.xlsx,.xls" : "image/*,.pdf"}
             className="hidden"
-            onChange={e => setFiles(mode === "excel" ? Array.from(e.target.files ?? []).slice(0, 1) : prev => [...prev, ...Array.from(e.target.files ?? [])])}
+            onChange={e => setFiles(prev => [...prev, ...Array.from(e.target.files ?? [])])}
           />
 
           {files.length > 0 && (
@@ -407,29 +390,69 @@ export function ImportClient() {
 
           {error && <p className="text-sm" style={{ color: "var(--danger)" }}>{error}</p>}
 
-          {mode === "excel" ? (
-            <button
-              className="btn-primary w-full justify-center"
-              onClick={handleExcelParse}
-              disabled={parsing || files.length === 0}
-            >
-              <Table2 size={14} />
-              {parsing ? "Reading Excel…" : "Read Excel File"}
-            </button>
-          ) : (
-            <button
-              className="btn-primary w-full justify-center"
-              onClick={handleParse}
-              disabled={parsing || files.length === 0 || !aiAvailable}
-            >
-              <Sparkles size={14} />
-              {parsing ? "Parsing with AI…" : "Parse with Claude AI"}
-            </button>
-          )}
+          <button
+            className="btn-primary w-full justify-center"
+            onClick={mode === "invoice" ? handleInvoiceParse : handleParse}
+            disabled={parsing || files.length === 0 || (mode !== "invoice" && !aiAvailable) || (mode === "invoice" && !hasExcel && !aiAvailable)}
+          >
+            {mode === "invoice" && hasExcel ? (
+              <><FileText size={14} /> {parsing ? "Reading file…" : "Parse Invoice"}</>
+            ) : (
+              <><Sparkles size={14} /> {parsing ? "Parsing with AI…" : "Parse with Claude AI"}</>
+            )}
+          </button>
         </div>
       )}
 
-      {/* Results */}
+      {/* Invoice results */}
+      {invoiceData && !committed && (
+        <div className="card space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold" style={{ color: "var(--text)" }}>Invoice Preview</h3>
+            <button className="btn-secondary text-xs py-1" onClick={() => { setInvoiceData(null); setFiles([]); }}>Start Over</button>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Supplier</p>
+              <p style={{ color: "var(--text)" }}>{invoiceData.supplier_name || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Invoice #</p>
+              <p style={{ color: "var(--text)" }}>{invoiceData.invoice_number || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Date</p>
+              <p style={{ color: "var(--text)" }}>{invoiceData.invoice_date || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Total</p>
+              <p className="font-mono" style={{ color: "var(--text)" }}>${invoiceData.total.toFixed(2)}</p>
+            </div>
+          </div>
+          <div className="table-container">
+            <table className="table-base">
+              <thead><tr><th>Product</th><th>Category</th><th>Qty</th><th>Unit Cost</th><th>Total</th></tr></thead>
+              <tbody>
+                {invoiceData.items.map((item, i) => (
+                  <tr key={i}>
+                    <td style={{ color: "var(--text)" }}>{item.name}</td>
+                    <td style={{ color: "var(--text-muted)" }}>{item.category || "—"}</td>
+                    <td className="font-mono">{item.quantity}</td>
+                    <td className="font-mono">${item.unit_cost.toFixed(2)}</td>
+                    <td className="font-mono">${(item.quantity * item.unit_cost).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs" style={{ color: "var(--text-dim)" }}>Saves to Supplier Invoices and updates inventory quantities.</p>
+          <button className="btn-primary w-full justify-center" onClick={handleCommitInvoice} disabled={committing}>
+            <Check size={14} /> {committing ? "Importing…" : `Import ${invoiceData.items.length} Items`}
+          </button>
+        </div>
+      )}
+
+      {/* Order / Client results */}
       {results && !committed && (
         <div className="card space-y-4">
           <div className="flex items-center justify-between">
@@ -460,32 +483,6 @@ export function ImportClient() {
                 ))}
                 <button className="btn-primary w-full justify-center" onClick={() => handleCommitOrders(allOrders)} disabled={committing}>
                   <Check size={14} /> {committing ? "Creating Orders…" : `Create ${allOrders.length} Order${allOrders.length !== 1 ? "s" : ""}`}
-                </button>
-              </div>
-            );
-          })()}
-
-          {mode === "invoice" && (() => {
-            const allItems: ParsedInvoiceItem[] = (results.results ?? []).flatMap((r) => ((r as { items?: ParsedInvoiceItem[] }).items ?? []));
-            return (
-              <div className="space-y-3">
-                <div className="table-container">
-                  <table className="table-base">
-                    <thead><tr><th>Product</th><th>Category</th><th>Qty</th><th>Unit Cost</th></tr></thead>
-                    <tbody>
-                      {allItems.map((item, i) => (
-                        <tr key={i}>
-                          <td style={{ color: "var(--text)" }}>{item.name}</td>
-                          <td style={{ color: "var(--text-muted)" }}>{item.category}</td>
-                          <td className="font-mono">{item.quantity}</td>
-                          <td className="font-mono">${item.unit_cost.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <button className="btn-primary w-full justify-center" onClick={() => handleCommitInvoice(allItems)} disabled={committing}>
-                  <Check size={14} /> {committing ? "Importing…" : `Import ${allItems.length} Items`}
                 </button>
               </div>
             );
@@ -544,13 +541,18 @@ export function ImportClient() {
                     <div className="flex border-t" style={{ borderColor: "var(--border)" }}>
                       {r.existing ? (
                         <>
-                          <button onClick={() => setClientResolutions(prev => prev.map((x, j) => j === i ? { ...x, action: "merge" } : x))}
+                          <button
+                            onClick={() => setClientResolutions(prev => prev.map((x, j) => j === i ? { ...x, action: "merge" } : x))}
                             className="flex-1 py-2 text-xs font-medium transition-colors"
-                            style={{ background: r.action === "merge" ? "var(--accent)" : "var(--surface)", color: r.action === "merge" ? "white" : "var(--text-muted)" }}>
+                            style={{ background: r.action === "merge" ? "var(--accent)" : "var(--surface)", color: r.action === "merge" ? "white" : "var(--text-muted)" }}
+                          >
                             Merge
                           </button>
-                          <button onClick={() => setClientResolutions(prev => prev.map((x, j) => j === i ? { ...x, action: "skip" } : x))}
-                            className="flex-1 py-2 text-xs font-medium transition-colors border-l" style={{ borderColor: "var(--border)", background: r.action === "skip" ? "var(--muted)" : "var(--surface)", color: r.action === "skip" ? "var(--text)" : "var(--text-muted)" }}>
+                          <button
+                            onClick={() => setClientResolutions(prev => prev.map((x, j) => j === i ? { ...x, action: "skip" } : x))}
+                            className="flex-1 py-2 text-xs font-medium transition-colors border-l"
+                            style={{ borderColor: "var(--border)", background: r.action === "skip" ? "var(--muted)" : "var(--surface)", color: r.action === "skip" ? "var(--text)" : "var(--text-muted)" }}
+                          >
                             Skip
                           </button>
                         </>
@@ -563,60 +565,12 @@ export function ImportClient() {
                 <p className="text-xs text-center" style={{ color: "var(--text-dim)" }}>
                   {newCount} new · {mergeCount} merge · {skipCount} skip
                 </p>
-                <button className="btn-primary w-full justify-center" onClick={handleCommitClients} disabled={committing || (newCount + mergeCount === 0)}>
+                <button className="btn-primary w-full justify-center" onClick={handleCommitClients} disabled={committing || newCount + mergeCount === 0}>
                   <Check size={14} /> {committing ? "Saving…" : `Confirm (${newCount + mergeCount} clients)`}
                 </button>
               </div>
             );
           })()}
-        </div>
-      )}
-
-      {/* Excel results */}
-      {excelData && !committed && (
-        <div className="card space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold" style={{ color: "var(--text)" }}>Excel Invoice Preview</h3>
-            <button className="btn-secondary text-xs py-1" onClick={() => { setExcelData(null); setFiles([]); }}>Start Over</button>
-          </div>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Supplier</p>
-              <p style={{ color: "var(--text)" }}>{excelData.supplier_name || "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Invoice #</p>
-              <p style={{ color: "var(--text)" }}>{excelData.invoice_number || "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Date</p>
-              <p style={{ color: "var(--text)" }}>{excelData.invoice_date || "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Total</p>
-              <p className="font-mono" style={{ color: "var(--text)" }}>${excelData.total.toFixed(2)}</p>
-            </div>
-          </div>
-          <div className="table-container">
-            <table className="table-base">
-              <thead><tr><th>Product</th><th>Category</th><th>Qty</th><th>Unit Cost</th><th>Total</th></tr></thead>
-              <tbody>
-                {excelData.items.map((item, i) => (
-                  <tr key={i}>
-                    <td style={{ color: "var(--text)" }}>{item.name}</td>
-                    <td style={{ color: "var(--text-muted)" }}>{item.category || "—"}</td>
-                    <td className="font-mono">{item.quantity}</td>
-                    <td className="font-mono">${item.unit_cost.toFixed(2)}</td>
-                    <td className="font-mono">${(item.quantity * item.unit_cost).toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-xs" style={{ color: "var(--text-dim)" }}>This will save the invoice to Supplier Invoices and update inventory quantities.</p>
-          <button className="btn-primary w-full justify-center" onClick={handleCommitExcel} disabled={committing}>
-            <Check size={14} /> {committing ? "Importing…" : `Import ${excelData.items.length} Items`}
-          </button>
         </div>
       )}
 
@@ -628,9 +582,9 @@ export function ImportClient() {
           </div>
           <h3 className="font-bold text-lg mb-2" style={{ color: "var(--text)" }}>Done!</h3>
           <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
-            {mode === "order" ? "Orders created successfully." : mode === "invoice" ? "Products imported successfully." : mode === "excel" ? "Invoice saved and inventory updated." : "Clients saved successfully."}
+            {mode === "order" ? "Orders created successfully." : mode === "invoice" ? "Invoice saved and inventory updated." : "Clients saved successfully."}
           </p>
-          <button className="btn-primary" onClick={() => { setParsed(null); setExcelData(null); setClientResolutions([]); setFiles([]); setCommitted(false); }}>Import More</button>
+          <button className="btn-primary" onClick={reset}>Import More</button>
         </div>
       )}
     </div>
