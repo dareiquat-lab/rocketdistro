@@ -56,7 +56,7 @@ const INVOICE_PROMPT = `You are parsing an invoice image or PDF for a product su
 }
 Rules: 'name' should be a clean, readable product name (title case, no invoice codes). unit_cost = the Rate/Unit Price column (cost per item to the store). quantity = the Qty column. Skip subtotal, tax, and total rows. Return ONLY the JSON object, no markdown, no explanation.`;
 
-const CLIENT_PROMPT = `You are parsing a document containing business client information for a wholesale distributor. The document may be a business card, a tobacco license, a seller's permit, or any other business document. Extract every distinct business record visible and return ONLY valid JSON with no extra text:
+const CLIENT_PROMPT = `You are parsing a document containing business client information. The document may be a business card, license, permit, or any other business document. Extract every distinct business record visible and return ONLY valid JSON with no extra text:
 {
   "clients": [
     {
@@ -64,12 +64,8 @@ const CLIENT_PROMPT = `You are parsing a document containing business client inf
       "contact_name": "string or null",
       "phone": "string or null",
       "email": "string or null",
-      "address": "string or null",
-      "city": "string or null",
-      "state": "string — 2-letter abbreviation or null",
-      "zip": "string or null",
-      "tobacco_license_number": "string or null",
-      "sellers_permit_number": "string or null"
+      "address": "full street address including city/state/zip as one string, or null",
+      "notes": "any other relevant info or null"
     }
   ]
 }

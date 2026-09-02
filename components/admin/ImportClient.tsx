@@ -26,11 +26,26 @@ interface ParsedClient {
   phone: string | null;
   email: string | null;
   address: string | null;
-  city: string | null;
-  state: string | null;
-  zip: string | null;
-  tobacco_license_number: string | null;
-  sellers_permit_number: string | null;
+  notes: string | null;
+}
+
+interface ExistingClient {
+  id: number;
+  business_name: string;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  notes: string | null;
+}
+
+type ClientAction = "create" | "merge" | "skip";
+
+interface ClientResolution {
+  parsed: ParsedClient;
+  existing: ExistingClient | null;
+  action: ClientAction;
+  checked: boolean;
 }
 
 export function ImportClient() {
@@ -43,6 +58,8 @@ export function ImportClient() {
   const [error, setError] = useState("");
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
   const [excelData, setExcelData] = useState<{ supplier_name: string; invoice_number: string; invoice_date: string; total: number; items: { name: string; category: string; quantity: number; unit_cost: number }[] } | null>(null);
+  const [clientResolutions, setClientResolutions] = useState<ClientResolution[]>([]);
+  const [checkingDupes, setCheckingDupes] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useState(() => {
@@ -249,28 +266,65 @@ export function ImportClient() {
     }
   };
 
-  const handleCommitClients = async (clients: ParsedClient[]) => {
+  const checkForDuplicates = async (clients: ParsedClient[]) => {
+    setCheckingDupes(true);
+    const resolutions: ClientResolution[] = [];
+    for (const client of clients) {
+      if (!client.business_name && !client.contact_name) continue;
+      const query = client.phone || client.business_name || client.contact_name || "";
+      let existing: ExistingClient | null = null;
+      if (query) {
+        const res = await fetch(`/api/admin/clients?search=${encodeURIComponent(query)}&limit=5`);
+        if (res.ok) {
+          const data = await res.json();
+          const candidates: ExistingClient[] = data.clients ?? [];
+          existing = candidates.find(c =>
+            (client.phone && c.phone === client.phone) ||
+            (client.business_name && c.business_name.toLowerCase() === (client.business_name ?? "").toLowerCase())
+          ) ?? null;
+        }
+      }
+      resolutions.push({ parsed: client, existing, action: existing ? "merge" : "create", checked: true });
+    }
+    setClientResolutions(resolutions);
+    setCheckingDupes(false);
+  };
+
+  const handleCommitClients = async () => {
     setCommitting(true);
     try {
-      for (const client of clients) {
-        if (!client.business_name && !client.contact_name) continue;
-        await fetch("/api/admin/clients", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            business_name: client.business_name || client.contact_name || "Unknown",
-            contact_name: client.contact_name,
-            phone: client.phone,
-            email: client.email,
-            address: client.address,
-            city: client.city,
-            state: client.state,
-            zip: client.zip,
-            tobacco_license_number: client.tobacco_license_number,
-            sellers_permit_number: client.sellers_permit_number,
-            client_type: "Retailer",
-          }),
-        });
+      for (const r of clientResolutions) {
+        if (r.action === "skip") continue;
+        const payload = {
+          business_name: r.parsed.business_name || r.parsed.contact_name || "Unknown",
+          contact_name: r.parsed.contact_name,
+          phone: r.parsed.phone,
+          email: r.parsed.email,
+          address: r.parsed.address,
+          notes: r.parsed.notes,
+        };
+        if (r.action === "merge" && r.existing) {
+          // Update existing with any non-null new values
+          const merged = {
+            business_name: r.parsed.business_name || r.existing.business_name,
+            contact_name: r.parsed.contact_name || r.existing.contact_name,
+            phone: r.parsed.phone || r.existing.phone,
+            email: r.parsed.email || r.existing.email,
+            address: r.parsed.address || r.existing.address,
+            notes: [r.existing.notes, r.parsed.notes].filter(Boolean).join(" | ") || null,
+          };
+          await fetch(`/api/admin/clients/${r.existing.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(merged),
+          });
+        } else {
+          await fetch("/api/admin/clients", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        }
       }
       setCommitted(true);
     } finally {
@@ -299,7 +353,7 @@ export function ImportClient() {
         ]).map(m => (
           <button
             key={m.value}
-            onClick={() => { setMode(m.value); setParsed(null); setExcelData(null); setCommitted(false); setFiles([]); setError(""); }}
+            onClick={() => { setMode(m.value); setParsed(null); setExcelData(null); setClientResolutions([]); setCommitted(false); setFiles([]); setError(""); }}
             className="flex-1 py-3 rounded-xl text-sm font-medium transition-colors"
             style={{
               background: mode === m.value ? "var(--accent)" : "var(--surface)",
@@ -380,7 +434,7 @@ export function ImportClient() {
         <div className="card space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold" style={{ color: "var(--text)" }}>Parsed Results</h3>
-            <button className="btn-secondary text-xs py-1" onClick={() => { setParsed(null); setFiles([]); }}>Start Over</button>
+            <button className="btn-secondary text-xs py-1" onClick={() => { setParsed(null); setClientResolutions([]); setFiles([]); }}>Start Over</button>
           </div>
 
           {mode === "order" && (() => {
@@ -439,20 +493,78 @@ export function ImportClient() {
 
           {mode === "client" && (() => {
             const allClients: ParsedClient[] = (results.results ?? []).flatMap((r) => ((r as { clients?: ParsedClient[] }).clients ?? []));
+            const resReady = clientResolutions.length > 0 && clientResolutions.every(r => r.checked);
+            if (!resReady) {
+              return (
+                <div className="space-y-3">
+                  {allClients.map((client, i) => (
+                    <div key={i} className="p-3 rounded-lg" style={{ background: "var(--muted)" }}>
+                      <p className="font-medium text-sm" style={{ color: "var(--text)" }}>{client.business_name ?? "Unknown Business"}</p>
+                      {client.contact_name && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{client.contact_name}</p>}
+                      {client.phone && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{client.phone}</p>}
+                      {client.email && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{client.email}</p>}
+                      {client.address && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{client.address}</p>}
+                    </div>
+                  ))}
+                  <button className="btn-primary w-full justify-center" onClick={() => checkForDuplicates(allClients)} disabled={checkingDupes}>
+                    <Check size={14} /> {checkingDupes ? "Checking for duplicates…" : `Review & Save ${allClients.length} Client${allClients.length !== 1 ? "s" : ""}`}
+                  </button>
+                </div>
+              );
+            }
+            const newCount = clientResolutions.filter(r => r.action === "create").length;
+            const mergeCount = clientResolutions.filter(r => r.action === "merge").length;
+            const skipCount = clientResolutions.filter(r => r.action === "skip").length;
             return (
               <div className="space-y-3">
-                {allClients.map((client, i) => (
-                  <div key={i} className="p-3 rounded-lg" style={{ background: "var(--muted)" }}>
-                    <p className="font-medium text-sm" style={{ color: "var(--text)" }}>{client.business_name ?? "Unknown Business"}</p>
-                    {client.contact_name && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{client.contact_name}</p>}
-                    {client.phone && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{client.phone}</p>}
-                    {client.email && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{client.email}</p>}
-                    {client.tobacco_license_number && <p className="text-xs" style={{ color: "var(--text-dim)" }}>Tobacco: {client.tobacco_license_number}</p>}
-                    {client.sellers_permit_number && <p className="text-xs" style={{ color: "var(--text-dim)" }}>Permit: {client.sellers_permit_number}</p>}
+                {clientResolutions.map((r, i) => (
+                  <div key={i} className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+                    <div className="p-3" style={{ background: "var(--muted)" }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-medium text-sm" style={{ color: "var(--text)" }}>{r.parsed.business_name ?? r.parsed.contact_name ?? "Unknown"}</p>
+                          {r.parsed.contact_name && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{r.parsed.contact_name}</p>}
+                          {r.parsed.phone && <p className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{r.parsed.phone}</p>}
+                          {r.parsed.email && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{r.parsed.email}</p>}
+                          {r.parsed.address && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{r.parsed.address}</p>}
+                        </div>
+                        {r.existing && (
+                          <span className="text-xs px-2 py-0.5 rounded-full shrink-0" style={{ background: "rgba(217,119,6,0.12)", color: "var(--warning)" }}>
+                            Duplicate found
+                          </span>
+                        )}
+                      </div>
+                      {r.existing && (
+                        <div className="mt-2 pt-2 border-t text-xs" style={{ borderColor: "var(--border)", color: "var(--text-dim)" }}>
+                          Existing: <span style={{ color: "var(--text-muted)" }}>{r.existing.business_name}</span>
+                          {r.existing.phone && <> · {r.existing.phone}</>}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex border-t" style={{ borderColor: "var(--border)" }}>
+                      {r.existing ? (
+                        <>
+                          <button onClick={() => setClientResolutions(prev => prev.map((x, j) => j === i ? { ...x, action: "merge" } : x))}
+                            className="flex-1 py-2 text-xs font-medium transition-colors"
+                            style={{ background: r.action === "merge" ? "var(--accent)" : "var(--surface)", color: r.action === "merge" ? "white" : "var(--text-muted)" }}>
+                            Merge
+                          </button>
+                          <button onClick={() => setClientResolutions(prev => prev.map((x, j) => j === i ? { ...x, action: "skip" } : x))}
+                            className="flex-1 py-2 text-xs font-medium transition-colors border-l" style={{ borderColor: "var(--border)", background: r.action === "skip" ? "var(--muted)" : "var(--surface)", color: r.action === "skip" ? "var(--text)" : "var(--text-muted)" }}>
+                            Skip
+                          </button>
+                        </>
+                      ) : (
+                        <div className="flex-1 py-2 text-xs text-center" style={{ color: "var(--success)" }}>New client — will be created</div>
+                      )}
+                    </div>
                   </div>
                 ))}
-                <button className="btn-primary w-full justify-center" onClick={() => handleCommitClients(allClients)} disabled={committing}>
-                  <Check size={14} /> {committing ? "Saving…" : `Save ${allClients.length} Client${allClients.length !== 1 ? "s" : ""}`}
+                <p className="text-xs text-center" style={{ color: "var(--text-dim)" }}>
+                  {newCount} new · {mergeCount} merge · {skipCount} skip
+                </p>
+                <button className="btn-primary w-full justify-center" onClick={handleCommitClients} disabled={committing || (newCount + mergeCount === 0)}>
+                  <Check size={14} /> {committing ? "Saving…" : `Confirm (${newCount + mergeCount} clients)`}
                 </button>
               </div>
             );
@@ -518,7 +630,7 @@ export function ImportClient() {
           <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
             {mode === "order" ? "Orders created successfully." : mode === "invoice" ? "Products imported successfully." : mode === "excel" ? "Invoice saved and inventory updated." : "Clients saved successfully."}
           </p>
-          <button className="btn-primary" onClick={() => { setParsed(null); setExcelData(null); setFiles([]); setCommitted(false); }}>Import More</button>
+          <button className="btn-primary" onClick={() => { setParsed(null); setExcelData(null); setClientResolutions([]); setFiles([]); setCommitted(false); }}>Import More</button>
         </div>
       )}
     </div>

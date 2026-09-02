@@ -1,20 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, Plus, Edit, Trash2, Users, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Users } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import type { Client, Order } from "@/types";
-import { CLIENT_TYPES } from "@/types";
-
-const TYPE_BADGE_MAP: Record<string, "info" | "success" | "warning" | "purple" | "default"> = {
-  Retailer: "info", "Store Owner": "success", Distributor: "warning", Supplier: "purple", "Chain Store": "info", Other: "default",
-};
 
 const emptyClient = (): Partial<Client> => ({
-  business_name: "", contact_name: "", phone: "", email: "", address: "", city: "", state: "", zip: "",
-  tobacco_license_number: "", sellers_permit_number: "", client_type: "Retailer", notes: "",
+  business_name: "", contact_name: "", phone: "", email: "", address: "", notes: "",
 });
 
 export function ClientsClient({ staffMode = false }: { staffMode?: boolean }) {
@@ -24,7 +18,6 @@ export function ClientsClient({ staffMode = false }: { staffMode?: boolean }) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [clientType, setClientType] = useState("");
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -44,7 +37,7 @@ export function ClientsClient({ staffMode = false }: { staffMode?: boolean }) {
   const fetchClients = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ search: debouncedSearch, clientType, page: String(page), limit: "25" });
+      const params = new URLSearchParams({ search: debouncedSearch, page: String(page), limit: "25" });
       const res = await fetch(`/api/admin/clients?${params}`);
       if (res.ok) {
         const data = await res.json();
@@ -55,7 +48,7 @@ export function ClientsClient({ staffMode = false }: { staffMode?: boolean }) {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, clientType, page]);
+  }, [debouncedSearch, page]);
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
@@ -70,17 +63,8 @@ export function ClientsClient({ staffMode = false }: { staffMode?: boolean }) {
     }
   };
 
-  const openCreate = () => {
-    setEditingClient(null);
-    setForm(emptyClient());
-    setFormOpen(true);
-  };
-
-  const openEdit = (client: Client) => {
-    setEditingClient(client);
-    setForm({ ...client });
-    setFormOpen(true);
-  };
+  const openCreate = () => { setEditingClient(null); setForm(emptyClient()); setFormOpen(true); };
+  const openEdit = (client: Client) => { setEditingClient(client); setForm({ ...client }); setFormOpen(true); };
 
   const handleSave = async () => {
     if (!form.business_name) return;
@@ -107,7 +91,7 @@ export function ClientsClient({ staffMode = false }: { staffMode?: boolean }) {
     }
   };
 
-  const f = (field: keyof Client) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+  const f = (field: keyof Client) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(prev => ({ ...prev, [field]: e.target.value }));
 
   return (
@@ -117,10 +101,6 @@ export function ClientsClient({ staffMode = false }: { staffMode?: boolean }) {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-dim)" }} />
           <input className="input-field pl-8" placeholder="Search clients…" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
-        <select className="input-field w-full sm:w-44" value={clientType} onChange={e => { setClientType(e.target.value); setPage(1); }}>
-          <option value="">All Types</option>
-          {CLIENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
         <button className="btn-primary" onClick={openCreate}><Plus size={14} /> New Client</button>
       </div>
 
@@ -134,18 +114,16 @@ export function ClientsClient({ staffMode = false }: { staffMode?: boolean }) {
               <th>Contact</th>
               <th>Phone</th>
               <th>Email</th>
-              <th>Type</th>
-              <th>Location</th>
-              <th>License #</th>
+              <th>Address</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="py-12 text-center" style={{ color: "var(--text-dim)" }}>Loading…</td></tr>
+              <tr><td colSpan={6} className="py-12 text-center" style={{ color: "var(--text-dim)" }}>Loading…</td></tr>
             ) : clients.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center">
+                <td colSpan={6} className="py-12 text-center">
                   <Users size={40} className="mx-auto mb-3" style={{ color: "var(--text-dim)" }} />
                   <p style={{ color: "var(--text-muted)" }}>No clients found</p>
                 </td>
@@ -160,11 +138,7 @@ export function ClientsClient({ staffMode = false }: { staffMode?: boolean }) {
                 <td style={{ color: "var(--text-muted)" }}>{client.contact_name ?? "—"}</td>
                 <td className="font-mono text-xs" style={{ color: "var(--text-muted)" }}>{client.phone ?? "—"}</td>
                 <td className="text-xs" style={{ color: "var(--text-muted)" }}>{client.email ?? "—"}</td>
-                <td><Badge variant={TYPE_BADGE_MAP[client.client_type] ?? "default"}>{client.client_type}</Badge></td>
-                <td className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  {[client.city, client.state].filter(Boolean).join(", ") || "—"}
-                </td>
-                <td className="font-mono text-xs" style={{ color: "var(--text-muted)" }}>{client.tobacco_license_number ?? "—"}</td>
+                <td className="text-xs" style={{ color: "var(--text-muted)" }}>{client.address ?? "—"}</td>
                 <td>
                   <div className="flex gap-1">
                     <button onClick={() => openEdit(client)} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--accent)" }}><Edit size={14} /></button>
@@ -192,13 +166,13 @@ export function ClientsClient({ staffMode = false }: { staffMode?: boolean }) {
         {detailClient && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3 text-sm">
-              {[
-                ["Contact", detailClient.contact_name], ["Phone", detailClient.phone], ["Email", detailClient.email],
-                ["Type", detailClient.client_type], ["Address", detailClient.address],
-                ["City/State/Zip", [detailClient.city, detailClient.state, detailClient.zip].filter(Boolean).join(", ")],
-                ["Tobacco License", detailClient.tobacco_license_number], ["Seller's Permit", detailClient.sellers_permit_number],
-              ].map(([label, value]) => value ? (
-                <div key={label as string}>
+              {([
+                ["Contact", detailClient.contact_name],
+                ["Phone", detailClient.phone],
+                ["Email", detailClient.email],
+                ["Address", detailClient.address],
+              ] as [string, string | null][]).map(([label, value]) => value ? (
+                <div key={label}>
                   <p className="label mb-0">{label}</p>
                   <p style={{ color: "var(--text)" }}>{value}</p>
                 </div>
@@ -238,25 +212,13 @@ export function ClientsClient({ staffMode = false }: { staffMode?: boolean }) {
       </Modal>
 
       {/* Create/Edit Modal */}
-      <Modal open={formOpen} onClose={() => setFormOpen(false)} title={editingClient ? "Edit Client" : "New Client"} size="xl">
+      <Modal open={formOpen} onClose={() => setFormOpen(false)} title={editingClient ? "Edit Client" : "New Client"} size="lg">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2"><label className="label">Business Name *</label><input className="input-field" value={form.business_name ?? ""} onChange={f("business_name")} /></div>
-          <div><label className="label">Contact Name</label><input className="input-field" value={form.contact_name ?? ""} onChange={f("contact_name")} /></div>
-          <div><label className="label">Client Type</label>
-            <select className="input-field" value={form.client_type ?? "Retailer"} onChange={f("client_type")}>
-              {CLIENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
+          <div><label className="label">Client Name</label><input className="input-field" value={form.contact_name ?? ""} onChange={f("contact_name")} /></div>
           <div><label className="label">Phone</label><input className="input-field" value={form.phone ?? ""} onChange={f("phone")} /></div>
-          <div><label className="label">Email</label><input className="input-field" value={form.email ?? ""} onChange={f("email")} /></div>
-          <div><label className="label">Tobacco License #</label><input className="input-field" value={form.tobacco_license_number ?? ""} onChange={f("tobacco_license_number")} /></div>
-          <div><label className="label">Seller's Permit #</label><input className="input-field" value={form.sellers_permit_number ?? ""} onChange={f("sellers_permit_number")} /></div>
           <div className="sm:col-span-2"><label className="label">Address</label><input className="input-field" value={form.address ?? ""} onChange={f("address")} /></div>
-          <div><label className="label">City</label><input className="input-field" value={form.city ?? ""} onChange={f("city")} /></div>
-          <div className="grid grid-cols-2 gap-2">
-            <div><label className="label">State</label><input className="input-field" value={form.state ?? ""} onChange={f("state")} maxLength={2} /></div>
-            <div><label className="label">ZIP</label><input className="input-field" value={form.zip ?? ""} onChange={f("zip")} /></div>
-          </div>
+          <div className="sm:col-span-2"><label className="label">Email</label><input className="input-field" value={form.email ?? ""} onChange={f("email")} /></div>
           <div className="sm:col-span-2"><label className="label">Notes</label><textarea className="input-field" rows={2} value={form.notes ?? ""} onChange={f("notes")} /></div>
         </div>
         <div className="flex gap-2 justify-end mt-4 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
