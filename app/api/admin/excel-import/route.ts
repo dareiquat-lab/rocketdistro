@@ -5,17 +5,22 @@ import { ADMIN_COOKIE, STAFF_COOKIE, isAdminOrStaff } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic";
 
-const PRODUCT_CANDIDATES = ["product name", "product", "item name", "item", "description", "name", "goods", "article"];
-const QTY_CANDIDATES = ["quantity", "qty", "units", "count", "pcs", "pieces", "pack"];
-const COST_CANDIDATES = ["unit cost", "unit price", "cost", "price", "rate", "each", "per unit"];
+const PRODUCT_CANDIDATES = [
+  "product name", "product", "item name", "item", "item description",
+  "description", "particulars", "name", "goods", "article",
+  "merchandise", "material", "material description", "part name",
+  "line description", "product title", "items", "product description",
+];
+const QTY_CANDIDATES = ["quantity", "qty", "units", "count", "pcs", "pieces", "pack", "ordered", "no of units"];
+const COST_CANDIDATES = ["unit cost", "unit price", "cost", "price", "rate", "each", "per unit", "amount", "value"];
 const CATEGORY_CANDIDATES = ["category", "type", "dept", "department", "class", "group"];
 const SKIP_NAMES = ["total", "subtotal", "grand total", "sub-total", "tax", "shipping", "discount"];
 
 function findColIndex(headers: string[], candidates: string[]): number {
   for (let i = 0; i < headers.length; i++) {
     const h = String(headers[i] ?? "").toLowerCase().trim();
-    if (!h) continue;
-    if (candidates.some((c) => h === c || h.includes(c) || c.includes(h))) return i;
+    if (h.length < 2) continue;
+    if (candidates.some((c) => h === c || h.includes(c) || (h.length >= 3 && c.includes(h)))) return i;
   }
   return -1;
 }
@@ -43,12 +48,15 @@ export async function POST(req: NextRequest) {
 
   const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
 
-  // Detect header row (first row with ≥2 matching keywords)
+  // Detect header row (first row with ≥2 non-empty cells matching column keywords)
   const ALL_KEYWORDS = [...PRODUCT_CANDIDATES, ...QTY_CANDIDATES, ...COST_CANDIDATES, ...CATEGORY_CANDIDATES];
   let headerRowIdx = -1;
   for (let i = 0; i < Math.min(rows.length, 20); i++) {
     const row = rows[i].map((c) => String(c ?? "").toLowerCase().trim());
-    const hits = row.filter((c) => ALL_KEYWORDS.some((k) => c.includes(k) || k.includes(c))).length;
+    const hits = row.filter((c) => {
+      if (c.length < 2) return false; // empty / single-char cells are never a column header
+      return ALL_KEYWORDS.some((k) => c === k || c.includes(k) || (c.length >= 3 && k.includes(c)));
+    }).length;
     if (hits >= 2) { headerRowIdx = i; break; }
   }
 
