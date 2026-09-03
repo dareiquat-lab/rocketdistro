@@ -1122,6 +1122,10 @@ export async function ensureSupplierInvoiceItemsTable() {
   await sql`CREATE INDEX IF NOT EXISTS idx_supplier_invoice_items_invoice_id ON supplier_invoice_items(invoice_id)`;
 }
 
+export async function ensureSupplierInvoiceFileUrlColumn() {
+  await sql`ALTER TABLE supplier_invoices ADD COLUMN IF NOT EXISTS file_url TEXT`;
+}
+
 export async function createSupplierInvoice(data: {
   invoice_number?: string | null;
   supplier_name: string;
@@ -1129,13 +1133,15 @@ export async function createSupplierInvoice(data: {
   total_amount: number;
   notes?: string | null;
   import_source?: string;
+  file_url?: string | null;
   items: { product_name: string; category?: string | null; quantity: number; unit_cost: number }[];
 }) {
   await ensureSupplierInvoicesTable();
   await ensureSupplierInvoiceItemsTable();
+  await ensureSupplierInvoiceFileUrlColumn();
   const rows = await sql`
-    INSERT INTO supplier_invoices (invoice_number, supplier_name, invoice_date, total_amount, notes, import_source)
-    VALUES (${data.invoice_number ?? null}, ${data.supplier_name || "Unknown Supplier"}, ${data.invoice_date ?? null}, ${data.total_amount}, ${data.notes ?? null}, ${data.import_source ?? "excel"})
+    INSERT INTO supplier_invoices (invoice_number, supplier_name, invoice_date, total_amount, notes, import_source, file_url)
+    VALUES (${data.invoice_number ?? null}, ${data.supplier_name || "Unknown Supplier"}, ${data.invoice_date ?? null}, ${data.total_amount}, ${data.notes ?? null}, ${data.import_source ?? "excel"}, ${data.file_url ?? null})
     RETURNING *
   `;
   const invoice = rows[0];
@@ -1148,8 +1154,14 @@ export async function createSupplierInvoice(data: {
   return invoice;
 }
 
+export async function deleteSupplierInvoice(id: number) {
+  await ensureSupplierInvoicesTable();
+  await sql`DELETE FROM supplier_invoices WHERE id = ${id}`;
+}
+
 export async function getSupplierInvoices(limit = 100) {
   await ensureSupplierInvoicesTable();
+  await ensureSupplierInvoiceFileUrlColumn().catch(() => {});
   const rows = await sql`SELECT * FROM supplier_invoices ORDER BY created_at DESC LIMIT ${limit}`;
   return rows;
 }
@@ -1157,6 +1169,7 @@ export async function getSupplierInvoices(limit = 100) {
 export async function getSupplierInvoiceById(id: number) {
   await ensureSupplierInvoicesTable();
   await ensureSupplierInvoiceItemsTable();
+  await ensureSupplierInvoiceFileUrlColumn().catch(() => {});
   const rows = await sql`SELECT * FROM supplier_invoices WHERE id = ${id}`;
   if (!rows[0]) return null;
   const items = await sql`SELECT * FROM supplier_invoice_items WHERE invoice_id = ${id} ORDER BY id`;

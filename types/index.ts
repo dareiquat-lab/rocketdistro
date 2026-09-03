@@ -141,6 +141,7 @@ export interface SupplierInvoice {
   total_amount: number;
   notes: string | null;
   import_source: string;
+  file_url?: string | null;
   created_at: string;
   items?: SupplierInvoiceItem[];
 }

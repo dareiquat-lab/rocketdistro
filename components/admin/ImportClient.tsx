@@ -183,6 +183,19 @@ export function ImportClient() {
     if (!invoiceData) return;
     setCommitting(true);
     try {
+      // Upload the original file to blob storage so it can be viewed later
+      let fileUrl: string | null = null;
+      const primaryFile = files[0] ?? null;
+      if (primaryFile) {
+        const uploadForm = new FormData();
+        uploadForm.append("file", primaryFile);
+        const uploadRes = await fetch("/api/upload", { method: "POST", body: uploadForm });
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          fileUrl = uploadData.url ?? null;
+        }
+      }
+
       await fetch("/api/admin/supplier-invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -192,6 +205,7 @@ export function ImportClient() {
           invoice_date: invoiceData.invoice_date || null,
           total_amount: invoiceData.total,
           import_source: invoiceData.source,
+          file_url: fileUrl,
           items: invoiceData.items,
         }),
       });
