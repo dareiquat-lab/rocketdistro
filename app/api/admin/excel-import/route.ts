@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
+import Anthropic from "@anthropic-ai/sdk";
 import { cookies } from "next/headers";
 import { ADMIN_COOKIE, STAFF_COOKIE, isAdminOrStaff } from "@/lib/auth-utils";
 
@@ -104,6 +105,64 @@ function inferBrandsFromNames(names: string[]): (string | null)[] {
   });
 }
 
+/**
+ * Uses Claude Haiku to identify brand patterns embedded in product codes.
+ * Returns pairs of {name, pattern} where pattern is the substring to match
+ * (e.g. {name: "Stizzy", pattern: "stizzy"} catches "CA-STIZZY-ORG").
+ * Gracefully returns [] if the API key is absent or the call fails.
+ */
+async function detectBrandPatternsWithAI(
+  names: string[]
+): Promise<{ name: string; pattern: string }[]> {
+  if (!process.env.ANTHROPIC_API_KEY) return [];
+  try {
+    const ai = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const sample = names.filter(Boolean).slice(0, 50);
+    const res = await ai.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 512,
+      messages: [
+        {
+          role: "user",
+          content: `You are identifying brand names embedded inside product codes on a supplier invoice.
+Brands can appear anywhere in a code — prefixed, suffixed, or concatenated with non-brand tokens like state codes, flavor codes, or size indicators.
+Examples: "CA-STIZZY-ORG" → brand "Stizzy" (pattern "stizzy"); "ORGSTIZZY" → brand "Stizzy" (pattern "stizzy"); "RBULL-12OZ-CAN" → brand "Red Bull" (pattern "rbull").
+
+Return ONLY valid JSON, no markdown:
+{"brands": [{"name": "Proper Display Name", "pattern": "lowercase substring that identifies this brand"}]}
+Use an empty array if no brand can be confidently determined.
+
+Product names:
+${sample.map((n) => `- ${n}`).join("\n")}`,
+        },
+      ],
+    });
+    const text = res.content[0].type === "text" ? res.content[0].text.trim() : "{}";
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed.brands)
+      ? parsed.brands.filter(
+          (b: unknown) =>
+            typeof (b as { name?: unknown }).name === "string" &&
+            typeof (b as { pattern?: unknown }).pattern === "string" &&
+            (b as { pattern: string }).pattern.length > 1
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function matchBrandPattern(
+  name: string,
+  aiPatterns: { name: string; pattern: string }[]
+): string | null {
+  const lower = name.toLowerCase();
+  for (const { name: brandName, pattern } of aiPatterns) {
+    if (lower.includes(pattern.toLowerCase())) return brandName;
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
   const adminToken = cookieStore.get(ADMIN_COOKIE)?.value;
@@ -174,8 +233,15 @@ export async function POST(req: NextRequest) {
   const dataRows = rows.slice(headerRowIdx + 1);
   const rawNames = dataRows.map((r) => String((r as unknown[])[productCol] ?? "").trim());
 
-  // Infer brands from repeating name patterns when no dedicated brand column exists
-  const inferredBrands = brandCol === -1 ? inferBrandsFromNames(rawNames) : null;
+  // When no brand column: try AI first (handles embedded codes), fall back to frequency analysis
+  let aiPatterns: { name: string; pattern: string }[] = [];
+  let inferredBrands: (string | null)[] | null = null;
+  if (brandCol === -1) {
+    aiPatterns = await detectBrandPatternsWithAI(rawNames);
+    if (aiPatterns.length === 0) {
+      inferredBrands = inferBrandsFromNames(rawNames);
+    }
+  }
 
   // Extract items
   const items: { name: string; brand: string | null; category: string; quantity: number; unit_cost: number }[] = [];
@@ -189,6 +255,8 @@ export async function POST(req: NextRequest) {
     let brand: string | null = null;
     if (brandCol !== -1) {
       brand = String(row[brandCol] ?? "").trim() || null;
+    } else if (aiPatterns.length > 0) {
+      brand = matchBrandPattern(name, aiPatterns);
     } else {
       brand = inferredBrands?.[i] ?? null;
     }
