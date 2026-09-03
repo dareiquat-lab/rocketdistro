@@ -1,20 +1,22 @@
+import Image from "next/image";
 import Link from "next/link";
-import { getStorefrontProducts } from "@/lib/db";
-import { getCategoryWithProductCount } from "@/lib/db";
+import { getStorefrontProducts, getCategoryWithProductCount, getBrandWithProductCount } from "@/lib/db";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { ArrowRight, Tag, Rocket } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [productsData, categories] = await Promise.all([
+  const [productsData, categories, brands] = await Promise.all([
     getStorefrontProducts({ limit: 8 }).catch(() => ({ products: [], total: 0, pages: 1 })),
     getCategoryWithProductCount().catch(() => []),
+    getBrandWithProductCount().catch(() => []),
   ]);
 
   const products = productsData.products;
   const totalProducts = productsData.total;
   const totalCategories = categories.length;
+  const activeBrands = brands.filter((b) => b.product_count > 0);
 
   return (
     <div>
@@ -94,10 +96,46 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Categories */}
-      {categories.length > 0 && (
+      {/* Shop by Brand */}
+      {activeBrands.length > 0 && (
         <section className="max-w-7xl mx-auto px-4 py-12">
-          <h2 className="text-2xl font-bold mb-6" style={{ color: "var(--text)" }}>Shop by Category</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Shop by Brand</h2>
+            <Link href="/brands" className="text-sm font-medium flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
+              All Brands <ArrowRight size={14} />
+            </Link>
+          </div>
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-4">
+            {activeBrands.slice(0, 12).map((brand) => (
+              <Link
+                key={brand.id}
+                href={`/products?category=${encodeURIComponent(brand.name)}`}
+                className="flex flex-col items-center text-center gap-2 p-3 rounded-xl transition-shadow hover:shadow-md"
+                style={{ background: "var(--surface)", border: "1px solid var(--border)", textDecoration: "none" }}
+              >
+                <div className="relative w-16 h-16 rounded-lg overflow-hidden" style={{ background: "var(--muted)" }}>
+                  {brand.image_url ? (
+                    <Image src={brand.image_url} alt={brand.name} fill className="object-contain p-1" sizes="64px" />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-2xl">🏷️</div>
+                  )}
+                </div>
+                <p className="font-semibold text-xs leading-tight" style={{ color: "var(--text)" }}>{brand.name}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Shop by Category */}
+      {categories.filter(c => c.product_count > 0).length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 py-12">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Shop by Category</h2>
+            <Link href="/categories" className="text-sm font-medium flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
+              All Categories <ArrowRight size={14} />
+            </Link>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             {categories.filter(c => c.product_count > 0).map(cat => (
               <Link

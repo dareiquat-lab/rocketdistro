@@ -1222,6 +1222,7 @@ export async function getBrands(): Promise<Brand[]> {
 export async function getBrandWithProductCount(): Promise<(Brand & { product_count: number })[]> {
   await ensureBrandsTable();
   await ensureProductsTable();
+  await ensureProductBrandColumn();
   const rows = await sql`
     SELECT b.*, COUNT(p.id)::int as product_count
     FROM brands b
