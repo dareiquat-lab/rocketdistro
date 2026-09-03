@@ -7,9 +7,10 @@ import { Upload, X, ImageIcon } from "lucide-react";
 interface ImageUploadProps {
   value: string | null;
   onChange: (url: string | null) => void;
+  label?: string;
 }
 
-export function ImageUpload({ value, onChange }: ImageUploadProps) {
+export function ImageUpload({ value, onChange, label = "Product Image" }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -46,7 +47,7 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
 
   return (
     <div>
-      <label className="label">Product Image</label>
+      <label className="label">{label}</label>
       {value ? (
         <div className="relative w-40 h-40 rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
           <Image src={value} alt="Product" fill className="object-cover" sizes="160px" />

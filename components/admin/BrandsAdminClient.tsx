@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, Edit, Trash2, Award } from "lucide-react";
 import Image from "next/image";
 import { Modal } from "@/components/ui/Modal";
+import { ImageUpload } from "@/components/products/ImageUpload";
 import type { Brand } from "@/types";
 
 type BrandWithCount = Brand & { product_count: number };
@@ -18,7 +19,7 @@ export function BrandsAdminClient() {
   const [saving, setSaving] = useState(false);
 
   const [formName, setFormName] = useState("");
-  const [formImageUrl, setFormImageUrl] = useState("");
+  const [formImageUrl, setFormImageUrl] = useState<string | null>(null);
   const [formDescription, setFormDescription] = useState("");
   const [formError, setFormError] = useState("");
 
@@ -36,7 +37,7 @@ export function BrandsAdminClient() {
 
   const openAdd = () => {
     setFormName("");
-    setFormImageUrl("");
+    setFormImageUrl(null);
     setFormDescription("");
     setFormError("");
     setAddOpen(true);
@@ -45,7 +46,7 @@ export function BrandsAdminClient() {
   const openEdit = (b: BrandWithCount) => {
     setEditBrand(b);
     setFormName(b.name);
-    setFormImageUrl(b.image_url ?? "");
+    setFormImageUrl(b.image_url ?? null);
     setFormDescription(b.description ?? "");
     setFormError("");
   };
@@ -60,7 +61,7 @@ export function BrandsAdminClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formName.trim(),
-          image_url: formImageUrl.trim() || null,
+          image_url: formImageUrl ?? null,
           description: formDescription.trim() || null,
         }),
       });
@@ -83,7 +84,7 @@ export function BrandsAdminClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formName.trim(),
-          image_url: formImageUrl.trim() || null,
+          image_url: formImageUrl ?? null,
           description: formDescription.trim() || null,
         }),
       });
@@ -118,20 +119,7 @@ export function BrandsAdminClient() {
           placeholder="e.g. Red Bull"
         />
       </div>
-      <div>
-        <label className="block text-sm font-medium mb-1" style={{ color: "var(--text)" }}>Image URL</label>
-        <input
-          className="input-field w-full"
-          value={formImageUrl}
-          onChange={e => setFormImageUrl(e.target.value)}
-          placeholder="https://..."
-        />
-        {formImageUrl && (
-          <div className="mt-2 relative w-16 h-16 rounded-lg overflow-hidden" style={{ background: "var(--muted)" }}>
-            <Image src={formImageUrl} alt="preview" fill className="object-contain" sizes="64px" />
-          </div>
-        )}
-      </div>
+      <ImageUpload value={formImageUrl} onChange={setFormImageUrl} label="Brand Logo" />
       <div>
         <label className="block text-sm font-medium mb-1" style={{ color: "var(--text)" }}>Description</label>
         <textarea

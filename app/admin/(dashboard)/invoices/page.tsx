@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Printer, Mail, Clock, ChevronDown, ChevronRight, FileSpreadsheet, Eye, Trash2, X, Download } from "lucide-react";
+import { Printer, Mail, Clock, ChevronDown, ChevronRight, FileSpreadsheet, Eye, Trash2, X, Download, File, ImageIcon } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { EmailInvoiceModal } from "@/components/admin/EmailInvoiceModal";
 import type { Order, InvoiceActivity, SupplierInvoice } from "@/types";
 import { AdminHeader } from "@/components/layout/AdminHeader";
 
-type Tab = "orders" | "supplier";
+type Tab = "orders" | "supplier" | "files";
 
 function CustomerInvoicesTab() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -128,23 +128,16 @@ function InvoiceFileModal({ invoice, onClose }: { invoice: SupplierInvoice; onCl
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}>
       <div className="relative w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
           <div>
             <p className="font-semibold" style={{ color: "var(--text)" }}>
-              {invoice.supplier_name} {invoice.invoice_number ? `· #${invoice.invoice_number}` : ""}
+              {invoice.supplier_name}{invoice.invoice_number ? ` · #${invoice.invoice_number}` : ""}
             </p>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>Original invoice file</p>
           </div>
           <div className="flex items-center gap-2">
             {url && (
-              <a
-                href={url}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-secondary text-xs flex items-center gap-1.5"
-              >
+              <a href={url} download target="_blank" rel="noopener noreferrer" className="btn-secondary text-xs flex items-center gap-1.5">
                 <Download size={13} /> Download
               </a>
             )}
@@ -154,7 +147,6 @@ function InvoiceFileModal({ invoice, onClose }: { invoice: SupplierInvoice; onCl
           </div>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-auto">
           {!url ? (
             <div className="flex items-center justify-center h-64">
@@ -187,6 +179,117 @@ function InvoiceFileModal({ invoice, onClose }: { invoice: SupplierInvoice; onCl
         </div>
       </div>
     </div>
+  );
+}
+
+function fileTypeIcon(url: string) {
+  const ext = url.split("?")[0].split(".").pop()?.toLowerCase();
+  if (ext && ["jpg", "jpeg", "png", "webp", "gif"].includes(ext)) return "image";
+  if (ext === "pdf") return "pdf";
+  if (ext && ["xlsx", "xls"].includes(ext)) return "excel";
+  return "other";
+}
+
+function InvoiceFilesTab() {
+  const [invoices, setInvoices] = useState<SupplierInvoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [viewing, setViewing] = useState<SupplierInvoice | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/supplier-invoices")
+      .then(r => r.json())
+      .then(d => setInvoices((d.invoices ?? []).filter((i: SupplierInvoice) => i.file_url)))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="rounded-xl aspect-[3/4] animate-pulse" style={{ background: "var(--muted)" }} />
+        ))}
+      </div>
+    );
+  }
+
+  if (invoices.length === 0) {
+    return (
+      <div className="text-center py-20">
+        <File size={40} className="mx-auto mb-3" style={{ color: "var(--text-dim)" }} />
+        <p className="font-semibold" style={{ color: "var(--text-muted)" }}>No scanned files yet</p>
+        <p className="text-sm mt-1" style={{ color: "var(--text-dim)" }}>Files will appear here when invoices are imported with an attached image, PDF, or Excel file.</p>
+        <a href="/admin/import" className="btn-primary mt-4 inline-flex items-center gap-2 text-sm">
+          <FileSpreadsheet size={14} /> Import Invoice
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        {invoices.map(inv => {
+          const type = fileTypeIcon(inv.file_url!);
+          const isImage = type === "image";
+          return (
+            <button
+              key={inv.id}
+              onClick={() => setViewing(inv)}
+              className="group text-left rounded-xl overflow-hidden transition-all hover:shadow-lg"
+              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+            >
+              {/* Thumbnail */}
+              <div
+                className="relative w-full aspect-[4/3] flex items-center justify-center overflow-hidden"
+                style={{ background: "var(--muted)" }}
+              >
+                {isImage ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={inv.file_url!}
+                    alt={inv.supplier_name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                  />
+                ) : type === "pdf" ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <File size={36} style={{ color: "#ef4444" }} />
+                    <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "#ef4444" }}>PDF</span>
+                  </div>
+                ) : type === "excel" ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <FileSpreadsheet size={36} style={{ color: "#16a34a" }} />
+                    <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "#16a34a" }}>Excel</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <ImageIcon size={36} style={{ color: "var(--text-dim)" }} />
+                    <span className="text-xs" style={{ color: "var(--text-dim)" }}>File</span>
+                  </div>
+                )}
+
+                {/* Hover overlay */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "rgba(0,0,0,0.4)" }}>
+                  <Eye size={24} color="white" />
+                </div>
+              </div>
+
+              {/* Info */}
+              <div className="p-3">
+                <p className="font-semibold text-xs truncate" style={{ color: "var(--text)" }}>{inv.supplier_name}</p>
+                {inv.invoice_number && (
+                  <p className="text-xs truncate font-mono" style={{ color: "var(--accent)" }}>#{inv.invoice_number}</p>
+                )}
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-dim)" }}>
+                  {format(new Date(inv.created_at), "MMM d, yyyy")}
+                </p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {viewing && <InvoiceFileModal invoice={viewing} onClose={() => setViewing(null)} />}
+    </>
   );
 }
 
@@ -338,10 +441,11 @@ function InvoicesClient() {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {([
           { value: "orders" as Tab, label: "Customer Invoices" },
           { value: "supplier" as Tab, label: "Supplier Invoices" },
+          { value: "files" as Tab, label: "Invoice Files" },
         ]).map(t => (
           <button
             key={t.value}
@@ -358,7 +462,7 @@ function InvoicesClient() {
         ))}
       </div>
 
-      {tab === "orders" ? <CustomerInvoicesTab /> : <SupplierInvoicesTab />}
+      {tab === "orders" ? <CustomerInvoicesTab /> : tab === "supplier" ? <SupplierInvoicesTab /> : <InvoiceFilesTab />}
     </div>
   );
 }
