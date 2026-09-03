@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getStorefrontProducts, getCategoryWithProductCount, getBrandWithProductCount } from "@/lib/db";
 import { ProductCard } from "@/components/storefront/ProductCard";
-import { ArrowRight, Tag, Rocket } from "lucide-react";
+import { ArrowRight, Bookmark, Rocket } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +49,7 @@ export default async function HomePage() {
             <div className="flex gap-8 mb-10">
               {[
                 { value: totalProducts.toLocaleString(), label: "Products" },
-                { value: totalCategories.toString(), label: "Categories" },
+                { value: activeBrands.length.toString(), label: "Brands" },
                 { value: "0%", label: "Tax Online" },
               ].map(s => (
                 <div key={s.label}>
@@ -62,8 +62,8 @@ export default async function HomePage() {
               <Link href="/products" className="btn-primary text-base px-6 py-3">
                 Browse Products <ArrowRight size={16} />
               </Link>
-              <Link href="/categories" className="btn-secondary text-base px-6 py-3">
-                <Tag size={16} /> Shop by Category
+              <Link href="/brands" className="btn-secondary text-base px-6 py-3">
+                <Bookmark size={16} /> Shop by Brand
               </Link>
             </div>
           </div>
@@ -96,36 +96,57 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Shop by Brand */}
-      {activeBrands.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 py-12">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Shop by Brand</h2>
-            <Link href="/brands" className="text-sm font-medium flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
+      {/* Shop by Brand — featured box */}
+      <section className="max-w-7xl mx-auto px-4 py-12">
+        <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-md)" }}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-8 pt-8 pb-6" style={{ borderBottom: "1px solid var(--border)" }}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "var(--accent)" }}>
+                <Bookmark size={18} color="white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-black" style={{ color: "var(--text)" }}>Shop by Brand</h2>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>{activeBrands.length} brand{activeBrands.length !== 1 ? "s" : ""} available</p>
+              </div>
+            </div>
+            <Link
+              href="/brands"
+              className="btn-primary"
+            >
               All Brands <ArrowRight size={14} />
             </Link>
           </div>
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-4">
-            {activeBrands.slice(0, 12).map((brand) => (
-              <Link
-                key={brand.id}
-                href={`/products?category=${encodeURIComponent(brand.name)}`}
-                className="flex flex-col items-center text-center gap-2 p-3 rounded-xl transition-shadow hover:shadow-md"
-                style={{ background: "var(--surface)", border: "1px solid var(--border)", textDecoration: "none" }}
-              >
-                <div className="relative w-16 h-16 rounded-lg overflow-hidden" style={{ background: "var(--muted)" }}>
-                  {brand.image_url ? (
-                    <Image src={brand.image_url} alt={brand.name} fill className="object-contain p-1" sizes="64px" />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-2xl">🏷️</div>
-                  )}
-                </div>
-                <p className="font-semibold text-xs leading-tight" style={{ color: "var(--text)" }}>{brand.name}</p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+
+          {/* Brand grid */}
+          {activeBrands.length === 0 ? (
+            <div className="px-8 py-12 text-center">
+              <p className="text-3xl mb-3">🏷️</p>
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>Brands will appear here once products are imported.</p>
+            </div>
+          ) : (
+            <div className="p-6 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+              {activeBrands.slice(0, 16).map((brand) => (
+                <Link
+                  key={brand.id}
+                  href={`/products?category=${encodeURIComponent(brand.name)}`}
+                  className="group flex flex-col items-center text-center gap-2 p-3 rounded-xl transition-all hover:shadow-sm"
+                  style={{ textDecoration: "none", background: "var(--muted)" }}
+                >
+                  <div className="relative w-14 h-14 rounded-lg overflow-hidden" style={{ background: "var(--surface)" }}>
+                    {brand.image_url ? (
+                      <Image src={brand.image_url} alt={brand.name} fill className="object-contain p-1" sizes="56px" />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-xl">🏷️</div>
+                    )}
+                  </div>
+                  <p className="font-semibold text-xs leading-tight" style={{ color: "var(--text)" }}>{brand.name}</p>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Shop by Category */}
       {categories.filter(c => c.product_count > 0).length > 0 && (
