@@ -24,7 +24,7 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
               <div>
                 <p className="font-semibold text-sm mb-3" style={{ color: "var(--text)" }}>Quick Links</p>
                 <div className="space-y-2">
-                  {[["Home", "/"], ["Products", "/products"], ["Categories", "/categories"]].map(([label, href]) => (
+                  {[["Home", "/"], ["Products", "/products"], ["Categories", "/categories"], ["Brands", "/brands"]].map(([label, href]) => (
                     <a key={href} href={href} className="block text-sm hover:opacity-70 transition-opacity" style={{ color: "var(--text-muted)", textDecoration: "none" }}>{label}</a>
                   ))}
                 </div>

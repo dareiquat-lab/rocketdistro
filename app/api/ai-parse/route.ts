@@ -48,13 +48,14 @@ const INVOICE_PROMPT = `You are parsing an invoice image or PDF for a product su
   "items": [
     {
       "name": "clean product name",
+      "brand": "the brand/manufacturer name extracted from the product name or invoice context, or null if not determinable",
       "category": "best guess at category",
       "quantity": number,
       "unit_cost": number
     }
   ]
 }
-Rules: 'name' should be a clean, readable product name (title case, no invoice codes). unit_cost = the Rate/Unit Price column (cost per item to the store). quantity = the Qty column. Skip subtotal, tax, and total rows. Return ONLY the JSON object, no markdown, no explanation.`;
+Rules: 'name' should be a clean, readable product name (title case, no invoice codes). 'brand' should be just the brand/manufacturer name (e.g. "Red Bull", "Monster Energy", "Tyson"). unit_cost = the Rate/Unit Price column (cost per item to the store). quantity = the Qty column. Skip subtotal, tax, and total rows. Return ONLY the JSON object, no markdown, no explanation.`;
 
 const CLIENT_PROMPT = `You are parsing a document containing business client information. The document may be a business card, license, permit, or any other business document. Extract every distinct business record visible and return ONLY valid JSON with no extra text:
 {

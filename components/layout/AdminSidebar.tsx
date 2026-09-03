@@ -6,7 +6,7 @@ import { useState } from "react";
 import {
   Rocket, LayoutDashboard, Package, AlertTriangle, ShoppingCart,
   Users, Tag, Sparkles, TrendingUp, ScanLine, FileText, LogOut,
-  X, Menu, FileDown, Send
+  X, Menu, FileDown, Send, Award
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { Sun, Moon } from "lucide-react";
@@ -39,6 +39,7 @@ export function AdminSidebar({ newOrdersCount = 0, lowStockCount = 0, userEmail 
     { href: "/admin/orders", label: "Orders", icon: <ShoppingCart size={18} />, badge: newOrdersCount },
     { href: "/admin/clients", label: "Clients", icon: <Users size={18} /> },
     { href: "/admin/categories", label: "Categories", icon: <Tag size={18} /> },
+    { href: "/admin/brands", label: "Brands", icon: <Award size={18} /> },
     { href: "/admin/import", label: "AI Import", icon: <Sparkles size={18} /> },
     { href: "/admin/profit", label: "Profit", icon: <TrendingUp size={18} /> },
     { href: "/admin/scan", label: "Scan", icon: <ScanLine size={18} /> },

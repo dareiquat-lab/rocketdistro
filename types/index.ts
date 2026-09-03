@@ -9,6 +9,17 @@ export interface Product {
   image_url: string | null;
   barcode: string | null;
   notes: string | null;
+  brand?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Brand {
+  id: number;
+  name: string;
+  slug: string;
+  image_url: string | null;
+  description: string | null;
   created_at: string;
   updated_at: string;
 }

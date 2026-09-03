@@ -181,9 +181,7 @@ export function InventoryClient() {
               <th className="cursor-pointer select-none" onClick={() => toggleSort("category")}>
                 <span className="flex items-center gap-1">Category <SortIcon col="category" /></span>
               </th>
-              <th className="cursor-pointer select-none" onClick={() => toggleSort("sku")}>
-                <span className="flex items-center gap-1">SKU <SortIcon col="sku" /></span>
-              </th>
+              <th>Brand</th>
               <th className="cursor-pointer select-none" onClick={() => toggleSort("quantity")}>
                 <span className="flex items-center gap-1">Qty <SortIcon col="quantity" /></span>
               </th>
@@ -234,7 +232,7 @@ export function InventoryClient() {
                   <Badge variant="default">{p.category}</Badge>
                 </td>
                 <td>
-                  <span className="font-mono text-xs" style={{ color: "var(--text-muted)" }}>{p.sku}</span>
+                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>{p.brand ?? "—"}</span>
                 </td>
                 <td>
                   <div className="flex items-center gap-1">

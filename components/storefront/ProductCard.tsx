@@ -15,6 +15,7 @@ interface ProductCardProps {
     quantity: number;
     image_url: string | null;
     notes?: string | null;
+    brand?: string | null;
   };
 }
 
@@ -62,7 +63,9 @@ export function ProductCard({ product }: ProductCardProps) {
           <h3 className="text-sm font-semibold line-clamp-2 mb-1" style={{ color: "var(--text)" }}>
             {product.product_name}
           </h3>
-          <p className="text-xs font-mono mb-2" style={{ color: "var(--text-dim)" }}>{product.sku}</p>
+          {(product.brand || product.category) && (
+            <p className="text-xs mb-2" style={{ color: "var(--text-dim)" }}>{product.brand ?? product.category}</p>
+          )}
           <p className="text-lg font-bold" style={{ color: "var(--accent)" }}>${Number(product.price).toFixed(2)}</p>
         </div>
       </Link>

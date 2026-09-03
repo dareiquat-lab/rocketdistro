@@ -1,5 +1,5 @@
 import { neon } from "@neondatabase/serverless";
-import type { Product, Order, OrderItem, Client, CategoryRecord, DashboardStats } from "@/types";
+import type { Product, Order, OrderItem, Client, CategoryRecord, DashboardStats, Brand } from "@/types";
 
 export const sql = neon(
   process.env.DATABASE_URL ?? "postgresql://placeholder:placeholder@localhost/placeholder",
@@ -364,7 +364,7 @@ export async function getStorefrontProducts(filters: {
 
   if (category) {
     rows = await sql`
-      SELECT id, product_name, category, sku, quantity, price, image_url, notes
+      SELECT id, product_name, category, sku, quantity, price, image_url, notes, brand
       FROM products
       WHERE category = ${category}
       AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm})
@@ -378,7 +378,7 @@ export async function getStorefrontProducts(filters: {
     `;
   } else {
     rows = await sql`
-      SELECT id, product_name, category, sku, quantity, price, image_url, notes
+      SELECT id, product_name, category, sku, quantity, price, image_url, notes, brand
       FROM products
       WHERE ${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm}
       ORDER BY product_name ASC
@@ -404,11 +404,13 @@ export async function createProduct(data: {
   image_url?: string | null;
   barcode?: string | null;
   notes?: string | null;
+  brand?: string | null;
 }): Promise<Product> {
   await ensureProductsTable();
+  await ensureProductBrandColumn();
   const rows = await sql`
-    INSERT INTO products (product_name, category, sku, quantity, price, cost, image_url, barcode, notes)
-    VALUES (${data.product_name}, ${data.category}, ${data.sku}, ${data.quantity}, ${data.price}, ${data.cost ?? 0}, ${data.image_url ?? null}, ${data.barcode ?? null}, ${data.notes ?? null})
+    INSERT INTO products (product_name, category, sku, quantity, price, cost, image_url, barcode, notes, brand)
+    VALUES (${data.product_name}, ${data.category}, ${data.sku}, ${data.quantity}, ${data.price}, ${data.cost ?? 0}, ${data.image_url ?? null}, ${data.barcode ?? null}, ${data.notes ?? null}, ${data.brand ?? null})
     RETURNING *
   `;
   return rows[0] as Product;
@@ -424,8 +426,10 @@ export async function updateProduct(id: number, data: Partial<{
   image_url: string | null;
   barcode: string | null;
   notes: string | null;
+  brand: string | null;
 }>): Promise<Product | null> {
   await ensureProductsTable();
+  await ensureProductBrandColumn();
   const rows = await sql`
     UPDATE products SET
       product_name = COALESCE(${data.product_name ?? null}, product_name),
@@ -437,6 +441,7 @@ export async function updateProduct(id: number, data: Partial<{
       image_url = CASE WHEN ${data.image_url !== undefined} THEN ${data.image_url ?? null} ELSE image_url END,
       barcode = CASE WHEN ${data.barcode !== undefined} THEN ${data.barcode ?? null} ELSE barcode END,
       notes = CASE WHEN ${data.notes !== undefined} THEN ${data.notes ?? null} ELSE notes END,
+      brand = CASE WHEN ${data.brand !== undefined} THEN ${data.brand ?? null} ELSE brand END,
       updated_at = NOW()
     WHERE id = ${id}
     RETURNING *
@@ -1163,4 +1168,118 @@ export async function getOrderActivity(orderId: number) {
     SELECT * FROM invoice_activity WHERE order_id = ${orderId} ORDER BY performed_at DESC
   `;
   return rows;
+}
+
+// ─── Brands ───────────────────────────────────────────────────────────────────
+
+export async function ensureBrandsTable() {
+  await sql`
+    CREATE TABLE IF NOT EXISTS brands (
+      id SERIAL PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      image_url TEXT,
+      description TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_brands_slug ON brands(slug)`;
+}
+
+export async function ensureProductBrandColumn() {
+  await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS brand TEXT`;
+}
+
+export function normalizeBrandName(raw: string): string {
+  let s = raw.trim();
+  s = s.replace(/\./g, " ");
+  s = s.replace(/\s+/g, " ").trim();
+  s = s.replace(/^[,.\s]+|[,.\s]+$/g, "");
+  s = s
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+  return s;
+}
+
+export function brandSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+export async function getBrands(): Promise<Brand[]> {
+  await ensureBrandsTable();
+  const rows = await sql`SELECT * FROM brands ORDER BY name`;
+  return rows as unknown as Brand[];
+}
+
+export async function getBrandWithProductCount(): Promise<(Brand & { product_count: number })[]> {
+  await ensureBrandsTable();
+  await ensureProductsTable();
+  const rows = await sql`
+    SELECT b.*, COUNT(p.id)::int as product_count
+    FROM brands b
+    LEFT JOIN products p ON p.brand = b.name
+    GROUP BY b.id
+    ORDER BY b.name
+  `;
+  return rows as unknown as (Brand & { product_count: number })[];
+}
+
+export async function upsertBrand(rawName: string, imageUrl?: string | null): Promise<Brand> {
+  await ensureBrandsTable();
+  const name = normalizeBrandName(rawName);
+  const slug = brandSlug(name);
+  if (imageUrl != null) {
+    const rows = await sql`
+      INSERT INTO brands (name, slug, image_url)
+      VALUES (${name}, ${slug}, ${imageUrl})
+      ON CONFLICT (slug) DO UPDATE SET
+        name = EXCLUDED.name,
+        image_url = COALESCE(brands.image_url, EXCLUDED.image_url),
+        updated_at = NOW()
+      RETURNING *
+    `;
+    return rows[0] as Brand;
+  } else {
+    const rows = await sql`
+      INSERT INTO brands (name, slug)
+      VALUES (${name}, ${slug})
+      ON CONFLICT (slug) DO UPDATE SET
+        name = EXCLUDED.name,
+        updated_at = NOW()
+      RETURNING *
+    `;
+    return rows[0] as Brand;
+  }
+}
+
+export async function updateBrand(
+  id: number,
+  data: Partial<{ name: string; image_url: string | null; description: string | null }>
+): Promise<Brand | null> {
+  await ensureBrandsTable();
+  const slugVal = data.name ? brandSlug(normalizeBrandName(data.name)) : null;
+  const rows = await sql`
+    UPDATE brands SET
+      name = COALESCE(${data.name ?? null}, name),
+      slug = COALESCE(${slugVal}, slug),
+      image_url = CASE WHEN ${data.image_url !== undefined} THEN ${data.image_url ?? null} ELSE image_url END,
+      description = CASE WHEN ${data.description !== undefined} THEN ${data.description ?? null} ELSE description END,
+      updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `;
+  return (rows[0] as Brand) ?? null;
+}
+
+export async function deleteBrand(id: number): Promise<void> {
+  await ensureBrandsTable();
+  await sql`DELETE FROM brands WHERE id = ${id}`;
 }
