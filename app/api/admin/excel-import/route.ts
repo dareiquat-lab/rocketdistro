@@ -31,6 +31,79 @@ function parseNumber(val: unknown): number {
   return parseFloat(String(val ?? "0").replace(/[$,\s]/g, "")) || 0;
 }
 
+// Words that commonly appear at the start of product names but are NOT brand names
+const BRAND_STOP_WORDS = new Set([
+  "new", "the", "a", "an", "and", "or", "of", "with", "for", "in", "on", "at",
+  "pack", "box", "case", "ct", "pk", "oz", "ml", "mg", "g", "lb", "lbs",
+  "each", "per", "unit", "units", "item", "items", "product", "assorted",
+  "mixed", "variety", "regular", "original", "classic", "deluxe", "premium",
+  "small", "medium", "large", "xl", "xxl", "mini", "king", "size", "single",
+]);
+
+// Normalize a token for comparison only (not for display)
+function tokenKey(word: string): string {
+  return word.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Scans all item names and detects repeating leading words/phrases that are
+ * likely brand names (e.g. "STIIIZY" appearing across many lines).
+ * Returns an array parallel to `names` with the detected brand (or null).
+ */
+function inferBrandsFromNames(names: string[]): (string | null)[] {
+  if (names.length < 2) return names.map(() => null);
+
+  // Count how many names start with each 1-, 2-, or 3-word prefix
+  type Entry = { count: number; display: string };
+  const prefixMap = new Map<string, Entry>();
+
+  for (const name of names) {
+    const words = name.trim().split(/\s+/);
+    for (let len = 1; len <= Math.min(3, words.length - 1); len++) {
+      const slice = words.slice(0, len);
+      const key = slice.map(tokenKey).join(" ");
+      const firstKey = slice[0] ? tokenKey(slice[0]) : "";
+      // Skip if the leading token is a stop word or too short
+      if (!firstKey || firstKey.length < 2 || BRAND_STOP_WORDS.has(firstKey)) break;
+      const existing = prefixMap.get(key);
+      prefixMap.set(key, {
+        count: (existing?.count ?? 0) + 1,
+        display: existing?.display ?? slice.join(" "),
+      });
+    }
+  }
+
+  // Keep only prefixes that appear in 2+ item names, sorted longest-first then most-frequent
+  const candidates = [...prefixMap.entries()]
+    .filter(([, e]) => e.count >= 2)
+    .sort((a, b) => {
+      const lenDiff = b[0].split(" ").length - a[0].split(" ").length;
+      return lenDiff !== 0 ? lenDiff : b[1].count - a[1].count;
+    });
+
+  if (candidates.length === 0) return names.map(() => null);
+
+  return names.map((name) => {
+    const words = name.trim().split(/\s+/);
+    // Try each candidate against this item's name (prefix match first, then anywhere)
+    for (const [key, { display }] of candidates) {
+      const keyParts = key.split(" ");
+      // Check prefix
+      const namePrefix = words.slice(0, keyParts.length).map(tokenKey).join(" ");
+      if (namePrefix === key) return display;
+    }
+    // Fallback: check if any candidate appears mid-name
+    for (const [key, { display }] of candidates) {
+      const keyParts = key.split(" ");
+      for (let i = 1; i <= words.length - keyParts.length; i++) {
+        const slice = words.slice(i, i + keyParts.length).map(tokenKey).join(" ");
+        if (slice === key) return display;
+      }
+    }
+    return null;
+  });
+}
+
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
   const adminToken = cookieStore.get(ADMIN_COOKIE)?.value;
@@ -97,11 +170,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Pre-collect all raw names so we can run cross-item brand inference
+  const dataRows = rows.slice(headerRowIdx + 1);
+  const rawNames = dataRows.map((r) => String((r as unknown[])[productCol] ?? "").trim());
+
+  // Infer brands from repeating name patterns when no dedicated brand column exists
+  const inferredBrands = brandCol === -1 ? inferBrandsFromNames(rawNames) : null;
+
   // Extract items
   const items: { name: string; brand: string | null; category: string; quantity: number; unit_cost: number }[] = [];
-  for (let i = headerRowIdx + 1; i < rows.length; i++) {
-    const row = rows[i];
-    const name = String(row[productCol] ?? "").trim();
+  for (let i = 0; i < dataRows.length; i++) {
+    const row = dataRows[i] as unknown[];
+    const name = rawNames[i];
     if (!name || SKIP_NAMES.some((s) => name.toLowerCase().includes(s))) continue;
     const qty = qtyCol !== -1 ? parseNumber(row[qtyCol]) : 1;
     const cost = costCol !== -1 ? parseNumber(row[costCol]) : 0;
@@ -110,12 +190,7 @@ export async function POST(req: NextRequest) {
     if (brandCol !== -1) {
       brand = String(row[brandCol] ?? "").trim() || null;
     } else {
-      const words = name.split(/\s+/);
-      if (words.length >= 4) {
-        brand = words.slice(0, Math.min(3, Math.floor(words.length / 2))).join(" ");
-      } else if (words.length >= 2) {
-        brand = words[0];
-      }
+      brand = inferredBrands?.[i] ?? null;
     }
     items.push({ name, brand, category, quantity: qty || 1, unit_cost: cost });
   }
