@@ -19,6 +19,7 @@ function ProductsContent() {
 
   const search = searchParams.get("search") ?? "";
   const category = searchParams.get("category") ?? "";
+  const brand = searchParams.get("brand") ?? "";
   const page = parseInt(searchParams.get("page") ?? "1");
 
   const setParam = (key: string, value: string) => {
@@ -31,7 +32,7 @@ function ProductsContent() {
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ search, category, page: String(page), limit: "24" });
+      const params = new URLSearchParams({ search, category, brand, page: String(page), limit: "24" });
       const res = await fetch(`/api/products?${params}`);
       if (res.ok) {
         const data = await res.json();
@@ -42,7 +43,7 @@ function ProductsContent() {
     } finally {
       setLoading(false);
     }
-  }, [search, category, page]);
+  }, [search, category, brand, page]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 

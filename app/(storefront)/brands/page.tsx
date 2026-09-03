@@ -23,7 +23,7 @@ export default async function BrandsPage() {
           {active.map((brand) => (
             <Link
               key={brand.id}
-              href={`/products?category=${encodeURIComponent(brand.name)}`}
+              href={`/products?brand=${encodeURIComponent(brand.name)}`}
               className="flex flex-col items-center text-center gap-3 p-4 rounded-xl transition-shadow hover:shadow-md"
               style={{ background: "var(--surface)", border: "1px solid var(--border)", textDecoration: "none" }}
             >

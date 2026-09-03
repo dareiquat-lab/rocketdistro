@@ -351,18 +351,34 @@ export async function getProductByBarcode(code: string): Promise<Product | null>
 export async function getStorefrontProducts(filters: {
   search?: string;
   category?: string;
+  brand?: string;
   page?: number;
   limit?: number;
 }) {
   await ensureProductsTable();
-  const { search = "", category = "", page = 1, limit = 24 } = filters;
+  await ensureProductBrandColumn();
+  const { search = "", category = "", brand = "", page = 1, limit = 24 } = filters;
   const searchTerm = `%${search}%`;
   const offset = (page - 1) * limit;
 
   let rows: Record<string, unknown>[];
   let countRows: Record<string, unknown>[];
 
-  if (category) {
+  if (brand) {
+    rows = await sql`
+      SELECT id, product_name, category, sku, quantity, price, image_url, notes, brand
+      FROM products
+      WHERE brand = ${brand}
+      AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm})
+      ORDER BY product_name ASC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+    countRows = await sql`
+      SELECT COUNT(*) as count FROM products
+      WHERE brand = ${brand}
+      AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm})
+    `;
+  } else if (category) {
     rows = await sql`
       SELECT id, product_name, category, sku, quantity, price, image_url, notes, brand
       FROM products

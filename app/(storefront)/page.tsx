@@ -129,7 +129,7 @@ export default async function HomePage() {
               {activeBrands.slice(0, 16).map((brand) => (
                 <Link
                   key={brand.id}
-                  href={`/products?category=${encodeURIComponent(brand.name)}`}
+                  href={`/products?brand=${encodeURIComponent(brand.name)}`}
                   className="group flex flex-col items-center text-center gap-2 p-3 rounded-xl transition-all hover:shadow-sm"
                   style={{ textDecoration: "none", background: "var(--muted)" }}
                 >

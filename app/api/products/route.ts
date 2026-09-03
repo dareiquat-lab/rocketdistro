@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(result);
     }
 
-    const result = await getStorefrontProducts({ search, category, page, limit });
+    const brand = searchParams.get("brand") ?? "";
+    const result = await getStorefrontProducts({ search, category, brand, page, limit });
     return NextResponse.json(result);
   } catch (e) {
     console.error(e);
