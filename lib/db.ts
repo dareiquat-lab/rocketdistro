@@ -1336,7 +1336,7 @@ export async function backfillBrandImagesToProducts(): Promise<number> {
   await ensureProductsTable();
   await ensureProductBrandColumn();
   await ensureBrandsTable();
-  const result = await sql`
+  const rows = await sql`
     UPDATE products p
     SET image_url = b.image_url, updated_at = NOW()
     FROM brands b
@@ -1344,6 +1344,7 @@ export async function backfillBrandImagesToProducts(): Promise<number> {
       AND b.image_url IS NOT NULL
       AND b.image_url != ''
       AND (p.image_url IS NULL OR p.image_url = '')
+    RETURNING p.id
   `;
-  return result.count ?? 0;
+  return rows.length;
 }
