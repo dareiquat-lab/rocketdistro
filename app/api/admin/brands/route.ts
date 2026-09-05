@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { ADMIN_COOKIE, STAFF_COOKIE, isAdminOrStaff } from "@/lib/auth-utils";
-import { getBrandWithProductCount, upsertBrand } from "@/lib/db";
+import { getBrandWithProductCount, upsertBrand, applyBrandImageToProducts } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +34,9 @@ export async function POST(request: NextRequest) {
     if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });
 
     const brand = await upsertBrand(name, image_url ?? null);
+    if (brand.image_url && image_url) {
+      await applyBrandImageToProducts(brand.name, brand.image_url);
+    }
     return NextResponse.json(brand, { status: 201 });
   } catch (e) {
     console.error(e);

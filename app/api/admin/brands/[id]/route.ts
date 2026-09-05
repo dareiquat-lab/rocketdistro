@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { ADMIN_COOKIE, STAFF_COOKIE, isAdminOrStaff } from "@/lib/auth-utils";
-import { getBrands, updateBrand, deleteBrand } from "@/lib/db";
+import { getBrands, updateBrand, deleteBrand, applyBrandImageToProducts } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +36,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const body = await request.json();
     const brand = await updateBrand(parseInt(id), body);
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (brand.image_url && body.image_url) {
+      await applyBrandImageToProducts(brand.name, brand.image_url);
+    }
     return NextResponse.json(brand);
   } catch (e) {
     console.error(e);

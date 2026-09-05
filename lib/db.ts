@@ -424,9 +424,14 @@ export async function createProduct(data: {
 }): Promise<Product> {
   await ensureProductsTable();
   await ensureProductBrandColumn();
+  await ensureBrandsTable();
   const rows = await sql`
     INSERT INTO products (product_name, category, sku, quantity, price, cost, image_url, barcode, notes, brand)
-    VALUES (${data.product_name}, ${data.category}, ${data.sku}, ${data.quantity}, ${data.price}, ${data.cost ?? 0}, ${data.image_url ?? null}, ${data.barcode ?? null}, ${data.notes ?? null}, ${data.brand ?? null})
+    VALUES (
+      ${data.product_name}, ${data.category}, ${data.sku}, ${data.quantity}, ${data.price}, ${data.cost ?? 0},
+      COALESCE(${data.image_url ?? null}, CASE WHEN ${data.brand ?? null} IS NOT NULL THEN (SELECT image_url FROM brands WHERE name = ${data.brand ?? null}) END),
+      ${data.barcode ?? null}, ${data.notes ?? null}, ${data.brand ?? null}
+    )
     RETURNING *
   `;
   return rows[0] as Product;
@@ -1312,4 +1317,15 @@ export async function updateBrand(
 export async function deleteBrand(id: number): Promise<void> {
   await ensureBrandsTable();
   await sql`DELETE FROM brands WHERE id = ${id}`;
+}
+
+// Update all products in a brand that have no image yet to use the brand image.
+export async function applyBrandImageToProducts(brandName: string, imageUrl: string): Promise<void> {
+  await ensureProductsTable();
+  await ensureProductBrandColumn();
+  await sql`
+    UPDATE products
+    SET image_url = ${imageUrl}, updated_at = NOW()
+    WHERE brand = ${brandName} AND (image_url IS NULL OR image_url = '')
+  `;
 }
