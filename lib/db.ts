@@ -217,6 +217,7 @@ export async function generateOrderNumber(): Promise<string> {
 export async function getProducts(filters: {
   search?: string;
   category?: string;
+  brand?: string;
   sortBy?: string;
   sortDir?: "asc" | "desc";
   page?: number;
@@ -227,6 +228,7 @@ export async function getProducts(filters: {
   const {
     search = "",
     category = "",
+    brand = "",
     sortDir = "asc",
     page = 1,
     limit = 25,
@@ -248,6 +250,7 @@ export async function getProducts(filters: {
         SELECT * FROM products
         WHERE quantity <= ${LOW_STOCK_THRESHOLD}
         AND category = ${category}
+        AND (${brand} = '' OR brand = ${brand})
         AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
         ORDER BY quantity ASC
         LIMIT ${limit} OFFSET ${offset}
@@ -256,12 +259,14 @@ export async function getProducts(filters: {
         SELECT COUNT(*) as count FROM products
         WHERE quantity <= ${LOW_STOCK_THRESHOLD}
         AND category = ${category}
+        AND (${brand} = '' OR brand = ${brand})
         AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
       `;
     } else {
       rows = await sql`
         SELECT * FROM products
         WHERE quantity <= ${LOW_STOCK_THRESHOLD}
+        AND (${brand} = '' OR brand = ${brand})
         AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
         ORDER BY quantity ASC
         LIMIT ${limit} OFFSET ${offset}
@@ -269,6 +274,7 @@ export async function getProducts(filters: {
       countRows = await sql`
         SELECT COUNT(*) as count FROM products
         WHERE quantity <= ${LOW_STOCK_THRESHOLD}
+        AND (${brand} = '' OR brand = ${brand})
         AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
       `;
     }
@@ -277,6 +283,7 @@ export async function getProducts(filters: {
       rows = await sql`
         SELECT * FROM products
         WHERE category = ${category}
+        AND (${brand} = '' OR brand = ${brand})
         AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
         ORDER BY created_at DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -285,6 +292,7 @@ export async function getProducts(filters: {
       rows = await sql`
         SELECT * FROM products
         WHERE category = ${category}
+        AND (${brand} = '' OR brand = ${brand})
         AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
         ORDER BY product_name DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -293,6 +301,7 @@ export async function getProducts(filters: {
       rows = await sql`
         SELECT * FROM products
         WHERE category = ${category}
+        AND (${brand} = '' OR brand = ${brand})
         AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
         ORDER BY product_name ASC
         LIMIT ${limit} OFFSET ${offset}
@@ -301,34 +310,39 @@ export async function getProducts(filters: {
     countRows = await sql`
       SELECT COUNT(*) as count FROM products
       WHERE category = ${category}
+      AND (${brand} = '' OR brand = ${brand})
       AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
     `;
   } else {
     if (safeSort === "created_at") {
       rows = await sql`
         SELECT * FROM products
-        WHERE ${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm}
+        WHERE (${brand} = '' OR brand = ${brand})
+        AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
         ORDER BY created_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
     } else if (safeDir === "DESC") {
       rows = await sql`
         SELECT * FROM products
-        WHERE ${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm}
+        WHERE (${brand} = '' OR brand = ${brand})
+        AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
         ORDER BY product_name DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
     } else {
       rows = await sql`
         SELECT * FROM products
-        WHERE ${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm}
+        WHERE (${brand} = '' OR brand = ${brand})
+        AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
         ORDER BY product_name ASC
         LIMIT ${limit} OFFSET ${offset}
       `;
     }
     countRows = await sql`
       SELECT COUNT(*) as count FROM products
-      WHERE ${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm}
+      WHERE (${brand} = '' OR brand = ${brand})
+      AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
     `;
   }
 

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AdminHeader } from "@/components/layout/AdminHeader";
 import { InventoryClient } from "@/components/admin/InventoryClient";
 
@@ -7,7 +8,9 @@ export default function InventoryPage() {
   return (
     <>
       <AdminHeader title="Inventory" breadcrumb="Admin / Inventory" />
-      <InventoryClient />
+      <Suspense>
+        <InventoryClient />
+      </Suspense>
     </>
   );
 }

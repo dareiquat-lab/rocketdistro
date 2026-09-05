@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Tag } from "lucide-react";
+import Link from "next/link";
 import { Modal } from "@/components/ui/Modal";
 import type { CategoryRecord } from "@/types";
 
@@ -93,16 +94,18 @@ export function CategoriesClient() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {categories.map(cat => (
             <div key={cat.id} className="card flex items-start gap-3">
-              <span className="text-3xl">{cat.icon}</span>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold" style={{ color: "var(--text)" }}>{cat.name}</p>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  {cat.product_count} product{cat.product_count !== 1 ? "s" : ""}
-                </p>
-                {cat.description && (
-                  <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--text-dim)" }}>{cat.description}</p>
-                )}
-              </div>
+              <Link href={`/admin/inventory?category=${encodeURIComponent(cat.name)}`} className="flex items-start gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity">
+                <span className="text-3xl">{cat.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold" style={{ color: "var(--text)" }}>{cat.name}</p>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    {cat.product_count} product{cat.product_count !== 1 ? "s" : ""}
+                  </p>
+                  {cat.description && (
+                    <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--text-dim)" }}>{cat.description}</p>
+                  )}
+                </div>
+              </Link>
               <div className="flex gap-1">
                 <button onClick={() => openEdit(cat)} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--accent)" }}>
                   <Edit size={14} />

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, Plus, Trash2, Edit, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Package } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Search, Plus, Trash2, Edit, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Package, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
@@ -11,6 +12,7 @@ import type { Product, CategoryRecord } from "@/types";
 const LOW_STOCK_THRESHOLD = 10;
 
 export function InventoryClient() {
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
   const [total, setTotal] = useState(0);
@@ -18,7 +20,8 @@ export function InventoryClient() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(() => searchParams.get("category") ?? "");
+  const [brand, setBrand] = useState(() => searchParams.get("brand") ?? "");
   const [sortBy, setSortBy] = useState("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [loading, setLoading] = useState(true);
@@ -36,7 +39,7 @@ export function InventoryClient() {
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        admin: "true", search: debouncedSearch, category,
+        admin: "true", search: debouncedSearch, category, brand,
         sortBy, sortDir, page: String(page), limit: "25",
       });
       const res = await fetch(`/api/products?${params}`);
@@ -49,7 +52,7 @@ export function InventoryClient() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, category, sortBy, sortDir, page]);
+  }, [debouncedSearch, category, brand, sortBy, sortDir, page]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
@@ -142,14 +145,23 @@ export function InventoryClient() {
             onChange={e => { setSearch(e.target.value); setPage(1); }}
           />
         </div>
-        <select
-          className="input-field w-full sm:w-44"
-          value={category}
-          onChange={e => { setCategory(e.target.value); setPage(1); }}
-        >
-          <option value="">All Categories</option>
-          {categories.map(c => <option key={c.id} value={c.name}>{c.icon} {c.name}</option>)}
-        </select>
+        {brand ? (
+          <div className="flex items-center gap-2 px-3 rounded-lg text-sm font-medium" style={{ background: "var(--accent)", color: "#fff" }}>
+            <span>{brand}</span>
+            <button onClick={() => { setBrand(""); setPage(1); }} className="hover:opacity-70">
+              <X size={13} />
+            </button>
+          </div>
+        ) : (
+          <select
+            className="input-field w-full sm:w-44"
+            value={category}
+            onChange={e => { setCategory(e.target.value); setPage(1); }}
+          >
+            <option value="">All Categories</option>
+            {categories.map(c => <option key={c.id} value={c.name}>{c.icon} {c.name}</option>)}
+          </select>
+        )}
         <div className="flex gap-2">
           {selected.size > 0 && (
             <button className="btn-danger" onClick={() => setBulkDeleteOpen(true)}>

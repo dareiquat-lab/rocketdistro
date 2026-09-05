@@ -21,10 +21,11 @@ export async function GET(request: NextRequest) {
       if (!token || token !== expected) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
+      const brand = searchParams.get("brand") ?? "";
       const sortBy = searchParams.get("sortBy") ?? "created_at";
       const sortDir = (searchParams.get("sortDir") ?? "asc") as "asc" | "desc";
       const lowStock = searchParams.get("lowStock") === "true";
-      const result = await getProducts({ search, category, sortBy, sortDir, page, limit, lowStock });
+      const result = await getProducts({ search, category, brand, sortBy, sortDir, page, limit, lowStock });
       return NextResponse.json(result);
     }
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Edit, Trash2, Award } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { Modal } from "@/components/ui/Modal";
 import { ImageUpload } from "@/components/products/ImageUpload";
 import type { Brand } from "@/types";
@@ -172,20 +173,22 @@ export function BrandsAdminClient() {
               key={b.id}
               className="card flex flex-col items-center text-center gap-3 p-4"
             >
-              <div className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0" style={{ background: "var(--muted)" }}>
-                {b.image_url ? (
-                  <Image src={b.image_url} alt={b.name} fill className="object-contain p-1" sizes="80px" />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-3xl">🏷️</div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0 w-full">
-                <p className="font-semibold text-sm truncate" style={{ color: "var(--text)" }}>{b.name}</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{b.product_count} product{b.product_count !== 1 ? "s" : ""}</p>
-                {b.description && (
-                  <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--text-dim)" }}>{b.description}</p>
-                )}
-              </div>
+              <Link href={`/admin/inventory?brand=${encodeURIComponent(b.name)}`} className="flex flex-col items-center gap-2 w-full hover:opacity-80 transition-opacity">
+                <div className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0" style={{ background: "var(--muted)" }}>
+                  {b.image_url ? (
+                    <Image src={b.image_url} alt={b.name} fill className="object-contain p-1" sizes="80px" />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-3xl">🏷️</div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0 w-full">
+                  <p className="font-semibold text-sm truncate" style={{ color: "var(--text)" }}>{b.name}</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{b.product_count} product{b.product_count !== 1 ? "s" : ""}</p>
+                  {b.description && (
+                    <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--text-dim)" }}>{b.description}</p>
+                  )}
+                </div>
+              </Link>
               <div className="flex gap-2 w-full">
                 <button
                   className="btn-secondary flex-1 py-1.5 text-xs"
