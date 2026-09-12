@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProductById, updateProduct, deleteProduct } from "@/lib/db";
 import { cookies } from "next/headers";
-import { computeAdminToken, ADMIN_COOKIE } from "@/lib/auth-utils";
+import { ADMIN_COOKIE, STAFF_COOKIE, isAdminOrStaff } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic";
 
 async function checkAuth() {
   const cookieStore = await cookies();
-  const token = cookieStore.get(ADMIN_COOKIE)?.value;
-  const expected = await computeAdminToken(process.env.ADMIN_PASSWORD || "");
-  return token && token === expected;
+  const adminToken = cookieStore.get(ADMIN_COOKIE)?.value;
+  const staffToken = cookieStore.get(STAFF_COOKIE)?.value;
+  return isAdminOrStaff(adminToken, staffToken);
 }
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {

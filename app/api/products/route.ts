@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStorefrontProducts, createProduct, getProducts } from "@/lib/db";
 import { cookies } from "next/headers";
-import { computeAdminToken, ADMIN_COOKIE } from "@/lib/auth-utils";
+import { ADMIN_COOKIE, STAFF_COOKIE, isAdminOrStaff } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -16,9 +16,9 @@ export async function GET(request: NextRequest) {
 
     if (admin) {
       const cookieStore = await cookies();
-      const token = cookieStore.get(ADMIN_COOKIE)?.value;
-      const expected = await computeAdminToken(process.env.ADMIN_PASSWORD || "");
-      if (!token || token !== expected) {
+      const adminToken = cookieStore.get(ADMIN_COOKIE)?.value;
+      const staffToken = cookieStore.get(STAFF_COOKIE)?.value;
+      if (!(await isAdminOrStaff(adminToken, staffToken))) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
       const brand = searchParams.get("brand") ?? "";
@@ -41,9 +41,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get(ADMIN_COOKIE)?.value;
-    const expected = await computeAdminToken(process.env.ADMIN_PASSWORD || "");
-    if (!token || token !== expected) {
+    const adminToken = cookieStore.get(ADMIN_COOKIE)?.value;
+    const staffToken = cookieStore.get(STAFF_COOKIE)?.value;
+    if (!(await isAdminOrStaff(adminToken, staffToken))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const body = await request.json();

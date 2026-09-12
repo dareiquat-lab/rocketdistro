@@ -182,6 +182,7 @@ export function ImportClient() {
   const handleCommitInvoice = async () => {
     if (!invoiceData) return;
     setCommitting(true);
+    setError("");
     try {
       // Upload the original file to blob storage so it can be viewed later
       let fileUrl: string | null = null;
@@ -209,7 +210,10 @@ export function ImportClient() {
           items: invoiceData.items,
         }),
       });
+
       for (const item of invoiceData.items) {
+        // Upsert the brand and capture the server-normalized brand name
+        let brandName: string | null = item.brand ?? null;
         let brandImageUrl: string | null = null;
         if (item.brand) {
           const brandRes = await fetch("/api/admin/brands", {
@@ -219,6 +223,7 @@ export function ImportClient() {
           });
           if (brandRes.ok) {
             const brandData = await brandRes.json();
+            brandName = brandData.name ?? brandName;
             brandImageUrl = brandData.image_url ?? null;
           }
         }
@@ -238,13 +243,13 @@ export function ImportClient() {
               body: JSON.stringify({
                 quantity: match.quantity + item.quantity,
                 cost: item.unit_cost,
-                ...(item.brand && !match.brand ? { brand: item.brand } : {}),
+                ...(brandName && !match.brand ? { brand: brandName } : {}),
               }),
             });
           }
         }
         if (!productId) {
-          const effectiveCategory = item.brand || item.category || "General";
+          const effectiveCategory = brandName || item.category || "General";
           const catRes = await fetch("/api/admin/categories");
           const cats = catRes.ok ? await catRes.json() : [];
           const matchedCat = (Array.isArray(cats) ? cats : []).find((c: { name: string }) =>
@@ -257,7 +262,7 @@ export function ImportClient() {
               body: JSON.stringify({ name: effectiveCategory, icon: "🏷️" }),
             });
           }
-          await fetch("/api/products", {
+          const createRes = await fetch("/api/products", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -267,13 +272,19 @@ export function ImportClient() {
               quantity: item.quantity,
               price: 0,
               cost: item.unit_cost,
-              brand: item.brand ?? null,
+              brand: brandName,
               image_url: brandImageUrl,
             }),
           });
+          if (!createRes.ok) {
+            const err = await createRes.json().catch(() => ({ error: `HTTP ${createRes.status}` }));
+            throw new Error(`Failed to import "${item.name}": ${err.error ?? createRes.status}`);
+          }
         }
       }
       setCommitted(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Import failed. Please try again.");
     } finally {
       setCommitting(false);
     }
