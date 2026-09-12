@@ -440,12 +440,19 @@ export async function createProduct(data: {
   await ensureProductBrandColumn();
   await ensureBrandsTable();
   const qty = Math.max(0, Math.round(Number(data.quantity) || 0));
+  const cost = Number(data.cost) || 0;
+  const price = Number(data.price) || 0;
+  // Resolve brand image separately to avoid a subquery inside VALUES
+  let imageUrl = data.image_url ?? null;
+  if (!imageUrl && data.brand) {
+    const brandRows = await sql`SELECT image_url FROM brands WHERE name = ${data.brand} LIMIT 1`;
+    imageUrl = (brandRows[0]?.image_url as string | null) ?? null;
+  }
   const rows = await sql`
     INSERT INTO products (product_name, category, sku, quantity, price, cost, image_url, barcode, notes, brand)
     VALUES (
-      ${data.product_name}, ${data.category}, ${data.sku}, ${qty}, ${data.price}, ${data.cost ?? 0},
-      COALESCE(${data.image_url ?? null}, CASE WHEN ${data.brand ?? null} IS NOT NULL THEN (SELECT image_url FROM brands WHERE name = ${data.brand ?? null}) END),
-      ${data.barcode ?? null}, ${data.notes ?? null}, ${data.brand ?? null}
+      ${data.product_name}, ${data.category}, ${data.sku}, ${qty}, ${price}, ${cost},
+      ${imageUrl}, ${data.barcode ?? null}, ${data.notes ?? null}, ${data.brand ?? null}
     )
     RETURNING *
   `;
