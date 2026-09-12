@@ -242,11 +242,12 @@ export function ImportClient() {
           );
           if (match) {
             productId = match.id;
+            const addQty = Math.max(1, Math.round(Number(item.quantity) || 1));
             await fetch(`/api/products/${match.id}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                quantity: match.quantity + item.quantity,
+                quantity: match.quantity + addQty,
                 cost: item.unit_cost,
                 ...(brandName && !match.brand ? { brand: brandName } : {}),
               }),
@@ -274,9 +275,9 @@ export function ImportClient() {
               product_name: item.name,
               category: effectiveCategory,
               sku: `IMP-${Date.now()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
-              quantity: item.quantity,
+              quantity: Math.max(1, Math.round(Number(item.quantity) || 1)),
               price: 0,
-              cost: item.unit_cost,
+              cost: Number(item.unit_cost) || 0,
               brand: brandName,
               image_url: brandImageUrl,
             }),
