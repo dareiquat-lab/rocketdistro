@@ -184,19 +184,16 @@ export function ImportClient() {
     setCommitting(true);
     setError("");
     try {
-      // Upload the original file to blob storage so it can be viewed later
+      // 1. Upload original file to blob storage
       let fileUrl: string | null = null;
-      const primaryFile = files[0] ?? null;
-      if (primaryFile) {
+      if (files[0]) {
         const uploadForm = new FormData();
-        uploadForm.append("file", primaryFile);
+        uploadForm.append("file", files[0]);
         const uploadRes = await fetch("/api/upload", { method: "POST", body: uploadForm });
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          fileUrl = uploadData.url ?? null;
-        }
+        if (uploadRes.ok) fileUrl = (await uploadRes.json()).url ?? null;
       }
 
+      // 2. Save supplier invoice record
       await fetch("/api/admin/supplier-invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -210,85 +207,110 @@ export function ImportClient() {
           items: invoiceData.items.map(i => ({
             product_name: i.name,
             category: i.category || null,
-            quantity: i.quantity,
-            unit_cost: i.unit_cost,
+            quantity: Math.max(1, Math.round(Number(i.quantity) || 1)),
+            unit_cost: Number(i.unit_cost) || 0,
           })),
         }),
       });
 
-      for (const item of invoiceData.items) {
-        // Upsert the brand and capture the server-normalized brand name
-        let brandName: string | null = item.brand ?? null;
-        let brandImageUrl: string | null = null;
-        if (item.brand) {
-          const brandRes = await fetch("/api/admin/brands", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: item.brand }),
-          });
-          if (brandRes.ok) {
-            const brandData = await brandRes.json();
-            brandName = brandData.name ?? brandName;
-            brandImageUrl = brandData.image_url ?? null;
-          }
-        }
+      // 3. Fetch existing categories once
+      const catRes = await fetch("/api/admin/categories");
+      const existingCats: Set<string> = new Set(
+        (catRes.ok ? await catRes.json() : [])
+          .map((c: { name: string }) => c.name.toLowerCase())
+      );
 
-        const searchRes = await fetch(`/api/products?admin=true&search=${encodeURIComponent(item.name)}&limit=5`);
-        let productId: number | null = null;
-        if (searchRes.ok) {
-          const data = await searchRes.json();
-          const match = (data.products ?? []).find((p: { product_name: string; quantity: number; brand?: string | null }) =>
-            p.product_name.toLowerCase() === item.name.toLowerCase()
-          );
-          if (match) {
-            productId = match.id;
-            const addQty = Math.max(1, Math.round(Number(item.quantity) || 1));
-            await fetch(`/api/products/${match.id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                quantity: match.quantity + addQty,
-                cost: item.unit_cost,
-                ...(brandName && !match.brand ? { brand: brandName } : {}),
-              }),
-            });
-          }
-        }
-        if (!productId) {
-          const effectiveCategory = brandName || item.category || "General";
-          const catRes = await fetch("/api/admin/categories");
-          const cats = catRes.ok ? await catRes.json() : [];
-          const matchedCat = (Array.isArray(cats) ? cats : []).find((c: { name: string }) =>
-            c.name.toLowerCase() === effectiveCategory.toLowerCase()
-          );
-          if (!matchedCat && effectiveCategory) {
-            await fetch("/api/admin/categories", {
+      // 4. Import each item — collect failures but don't stop
+      const failures: string[] = [];
+      for (const item of invoiceData.items) {
+        try {
+          // Upsert brand, capture normalized name from server
+          let brandName: string | null = item.brand ?? null;
+          let brandImageUrl: string | null = null;
+          if (item.brand) {
+            const brandRes = await fetch("/api/admin/brands", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ name: effectiveCategory, icon: "🏷️" }),
+              body: JSON.stringify({ name: item.brand }),
             });
+            if (brandRes.ok) {
+              const bd = await brandRes.json();
+              brandName = bd.name ?? brandName;
+              brandImageUrl = bd.image_url ?? null;
+            }
           }
-          const createRes = await fetch("/api/products", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              product_name: item.name,
-              category: effectiveCategory,
-              sku: `IMP-${Date.now()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
-              quantity: Math.max(1, Math.round(Number(item.quantity) || 1)),
-              price: 0,
-              cost: Number(item.unit_cost) || 0,
-              brand: brandName,
-              image_url: brandImageUrl,
-            }),
-          });
-          if (!createRes.ok) {
-            const err = await createRes.json().catch(() => ({ error: `HTTP ${createRes.status}` }));
-            throw new Error(`Failed to import "${item.name}": ${err.error ?? createRes.status}`);
+
+          const qty = Math.max(1, Math.round(Number(item.quantity) || 1));
+          const cost = Number(item.unit_cost) || 0;
+
+          // Check for existing product by exact name match
+          const searchRes = await fetch(`/api/products?admin=true&search=${encodeURIComponent(item.name)}&limit=5`);
+          let productId: number | null = null;
+          if (searchRes.ok) {
+            const d = await searchRes.json();
+            const match = (d.products ?? []).find((p: { product_name: string; quantity: number; brand?: string | null }) =>
+              p.product_name.toLowerCase() === item.name.toLowerCase()
+            );
+            if (match) {
+              productId = match.id;
+              await fetch(`/api/products/${match.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  quantity: match.quantity + qty,
+                  cost,
+                  ...(brandName && !match.brand ? { brand: brandName } : {}),
+                }),
+              });
+            }
           }
+
+          if (!productId) {
+            // AI-supplied category takes priority; fall back to brand or General
+            const effectiveCategory = item.category || brandName || "General";
+
+            // Create category if it doesn't exist yet
+            if (!existingCats.has(effectiveCategory.toLowerCase())) {
+              await fetch("/api/admin/categories", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: effectiveCategory, icon: "🏷️" }),
+              });
+              existingCats.add(effectiveCategory.toLowerCase());
+            }
+
+            const createRes = await fetch("/api/products", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                product_name: item.name,
+                category: effectiveCategory,
+                sku: `IMP-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
+                quantity: qty,
+                price: 0,
+                cost,
+                brand: brandName,
+                image_url: brandImageUrl,
+              }),
+            });
+            if (!createRes.ok) {
+              const err = await createRes.json().catch(() => ({}));
+              failures.push(`${item.name}${err.error ? ` (${err.error})` : ""}`);
+            }
+          }
+        } catch {
+          failures.push(item.name);
         }
       }
-      setCommitted(true);
+
+      if (failures.length === invoiceData.items.length) {
+        setError(`Import failed for all items. First: ${failures[0]}`);
+      } else {
+        if (failures.length > 0) {
+          setError(`${invoiceData.items.length - failures.length} of ${invoiceData.items.length} items imported. Failed: ${failures.slice(0, 3).join(", ")}${failures.length > 3 ? "…" : ""}`);
+        }
+        setCommitted(true);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Import failed. Please try again.");
     } finally {
@@ -460,7 +482,7 @@ export function ImportClient() {
         <div className="card space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold" style={{ color: "var(--text)" }}>Invoice Preview</h3>
-            <button className="btn-secondary text-xs py-1" onClick={() => { setInvoiceData(null); setFiles([]); }}>Start Over</button>
+            <button className="btn-secondary text-xs py-1" onClick={() => { setInvoiceData(null); setFiles([]); setError(""); }}>Start Over</button>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
