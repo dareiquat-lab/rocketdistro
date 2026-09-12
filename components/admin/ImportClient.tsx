@@ -207,7 +207,12 @@ export function ImportClient() {
           total_amount: invoiceData.total,
           import_source: invoiceData.source,
           file_url: fileUrl,
-          items: invoiceData.items,
+          items: invoiceData.items.map(i => ({
+            product_name: i.name,
+            category: i.category || null,
+            quantity: i.quantity,
+            unit_cost: i.unit_cost,
+          })),
         }),
       });
 
@@ -492,6 +497,7 @@ export function ImportClient() {
             </table>
           </div>
           <p className="text-xs" style={{ color: "var(--text-dim)" }}>Saves to Supplier Invoices and updates inventory quantities.</p>
+          {error && <p className="text-sm" style={{ color: "var(--danger)" }}>{error}</p>}
           <button className="btn-primary w-full justify-center" onClick={handleCommitInvoice} disabled={committing}>
             <Check size={14} /> {committing ? "Importing…" : `Import ${invoiceData.items.length} Items`}
           </button>
