@@ -457,6 +457,7 @@ export function CreateOrderClient() {
                             <input
                               type="number" min="1" value={item.quantity}
                               onChange={e => setCartQty(item.product_id, parseInt(e.target.value) || 1)}
+                              onFocus={e => e.target.select()}
                               className="w-12 text-center text-sm font-mono rounded-lg border-0 outline-none h-6"
                               style={{ background: "var(--muted)", color: "var(--text)" }}
                             />
@@ -469,6 +470,7 @@ export function CreateOrderClient() {
                             <input
                               type="number" min="0" step="0.01" value={item.price}
                               onChange={e => updateItemPrice(item.product_id, parseFloat(e.target.value) || 0)}
+                              onFocus={e => e.target.select()}
                               className="input-field pl-5 py-1 text-sm font-mono w-full"
                             />
                           </div>
