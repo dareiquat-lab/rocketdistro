@@ -6,7 +6,7 @@ import { useState } from "react";
 import {
   Rocket, LayoutDashboard, Package, AlertTriangle, ShoppingCart,
   Users, Sparkles, TrendingUp, ScanLine, FileText, LogOut,
-  X, Menu, FileDown, Send, Award
+  X, Menu, FileDown, Send, Award, FilePlus
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { Sun, Moon } from "lucide-react";
@@ -37,6 +37,7 @@ export function AdminSidebar({ newOrdersCount = 0, lowStockCount = 0, userEmail 
     { href: "/admin/inventory", label: "Inventory", icon: <Package size={18} /> },
     { href: "/admin/low-stock", label: "Low Stock", icon: <AlertTriangle size={18} />, badge: lowStockCount },
     { href: "/admin/orders", label: "Orders", icon: <ShoppingCart size={18} />, badge: newOrdersCount },
+    { href: "/admin/orders/new", label: "New Order", icon: <FilePlus size={18} /> },
     { href: "/admin/clients", label: "Clients", icon: <Users size={18} /> },
     { href: "/admin/brands", label: "Brands", icon: <Award size={18} /> },
     { href: "/admin/import", label: "AI Import", icon: <Sparkles size={18} /> },
@@ -53,6 +54,7 @@ export function AdminSidebar({ newOrdersCount = 0, lowStockCount = 0, userEmail 
 
   const isActive = (href: string) => {
     if (href === "/admin") return pathname === "/admin";
+    if (href === "/admin/orders") return pathname === "/admin/orders" || (pathname.startsWith("/admin/orders") && !pathname.startsWith("/admin/orders/new"));
     return pathname.startsWith(href);
   };
 
