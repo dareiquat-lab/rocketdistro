@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, Plus, Trash2, Edit, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Package, X } from "lucide-react";
+import { Search, Plus, Trash2, Edit, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Package, X, Tag } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
-import type { Product } from "@/types";
+import type { Product, Brand } from "@/types";
 
 const LOW_STOCK_THRESHOLD = 10;
 
@@ -26,12 +26,19 @@ export function InventoryClient() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkBrandOpen, setBulkBrandOpen] = useState(false);
+  const [bulkBrandName, setBulkBrandName] = useState("");
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
     return () => clearTimeout(t);
   }, [search]);
+
+  useEffect(() => {
+    fetch("/api/admin/brands").then(r => r.ok ? r.json() : []).then(setBrands).catch(() => {});
+  }, []);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -105,6 +112,23 @@ export function InventoryClient() {
     }
   };
 
+  const handleBulkAssignBrand = async () => {
+    setDeleting(true);
+    try {
+      await fetch("/api/products/bulk", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selected), brand: bulkBrandName || null }),
+      });
+      setSelected(new Set());
+      setBulkBrandOpen(false);
+      setBulkBrandName("");
+      fetchProducts();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const toggleSelect = (id: number) => {
     setSelected(prev => {
       const next = new Set(prev);
@@ -147,9 +171,14 @@ export function InventoryClient() {
         )}
         <div className="flex gap-2">
           {selected.size > 0 && (
-            <button className="btn-danger" onClick={() => setBulkDeleteOpen(true)}>
-              <Trash2 size={14} /> Delete ({selected.size})
-            </button>
+            <>
+              <button className="btn-secondary" onClick={() => { setBulkBrandName(""); setBulkBrandOpen(true); }}>
+                <Tag size={14} /> Assign Brand ({selected.size})
+              </button>
+              <button className="btn-danger" onClick={() => setBulkDeleteOpen(true)}>
+                <Trash2 size={14} /> Delete ({selected.size})
+              </button>
+            </>
           )}
           <a href="/api/export?format=csv" className="btn-secondary">Export</a>
           <Link href="/admin/products/new" className="btn-primary">
@@ -315,6 +344,30 @@ export function InventoryClient() {
           <button className="btn-danger" onClick={handleBulkDelete} disabled={deleting}>
             {deleting ? "Deleting…" : "Delete All"}
           </button>
+        </div>
+      </Modal>
+
+      <Modal open={bulkBrandOpen} onClose={() => setBulkBrandOpen(false)} title={`Assign Brand — ${selected.size} product${selected.size !== 1 ? "s" : ""}`} size="sm">
+        <div className="space-y-4">
+          <div>
+            <label className="label">Brand</label>
+            <select
+              className="input-field"
+              value={bulkBrandName}
+              onChange={e => setBulkBrandName(e.target.value)}
+            >
+              <option value="">— Remove brand —</option>
+              {brands.map(b => (
+                <option key={b.id} value={b.name}>{b.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button className="btn-secondary" onClick={() => setBulkBrandOpen(false)}>Cancel</button>
+            <button className="btn-primary" onClick={handleBulkAssignBrand} disabled={deleting}>
+              {deleting ? "Saving…" : "Assign"}
+            </button>
+          </div>
         </div>
       </Modal>
     </div>

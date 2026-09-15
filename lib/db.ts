@@ -385,6 +385,12 @@ export async function bulkDeleteProducts(ids: number[]): Promise<void> {
   await sql`DELETE FROM products WHERE id = ANY(${ids})`;
 }
 
+export async function bulkAssignBrand(ids: number[], brand: string | null): Promise<void> {
+  await ensureProductsTable();
+  if (ids.length === 0) return;
+  await sql`UPDATE products SET brand = ${brand}, updated_at = NOW() WHERE id = ANY(${ids})`;
+}
+
 export async function getAllProductsForExport(): Promise<Product[]> {
   await ensureProductsTable();
   const rows = await sql`SELECT * FROM products ORDER BY product_name`;

@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ImageUpload } from "./ImageUpload";
-import type { Product } from "@/types";
+import type { Product, Brand } from "@/types";
 
 const schema = z.object({
   product_name: z.string().min(1, "Product name is required"),
@@ -16,6 +16,7 @@ const schema = z.object({
   cost: z.number().min(0, "Cost must be 0 or more"),
   barcode: z.string().optional(),
   notes: z.string().optional(),
+  brand: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -30,6 +31,7 @@ export function ProductFormWrapper({ product }: ProductFormWrapperProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [skuManual, setSkuManual] = useState(!!product);
+  const [brands, setBrands] = useState<Brand[]>([]);
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -41,8 +43,13 @@ export function ProductFormWrapper({ product }: ProductFormWrapperProps) {
       cost: product ? Number(product.cost) : 0,
       barcode: product?.barcode ?? "",
       notes: product?.notes ?? "",
+      brand: product?.brand ?? "",
     },
   });
+
+  useEffect(() => {
+    fetch("/api/admin/brands").then(r => r.ok ? r.json() : []).then(setBrands).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (skuManual) return;
@@ -63,7 +70,13 @@ export function ProductFormWrapper({ product }: ProductFormWrapperProps) {
     setSaving(true);
     setError("");
     try {
-      const body = { ...data, image_url: imageUrl, barcode: data.barcode || null, notes: data.notes || null };
+      const body = {
+        ...data,
+        image_url: imageUrl,
+        barcode: data.barcode || null,
+        notes: data.notes || null,
+        brand: data.brand || null,
+      };
       const res = product
         ? await fetch(`/api/products/${product.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
         : await fetch("/api/products", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -110,6 +123,16 @@ export function ProductFormWrapper({ product }: ProductFormWrapperProps) {
             </div>
             {errors.sku && <p className="text-xs mt-1" style={{ color: "var(--danger)" }}>{errors.sku.message}</p>}
           </div>
+        </div>
+
+        <div>
+          <label className="label">Brand</label>
+          <select className="input-field" {...register("brand")}>
+            <option value="">— No brand —</option>
+            {brands.map(b => (
+              <option key={b.id} value={b.name}>{b.name}</option>
+            ))}
+          </select>
         </div>
 
         <div className="grid grid-cols-3 gap-4">
