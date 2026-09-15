@@ -30,6 +30,30 @@ function StockBadge({ qty }: { qty: number }) {
   return <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: "rgba(22,163,74,0.12)", color: "var(--success)" }}>{qty}</span>;
 }
 
+function PriceInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [raw, setRaw] = useState<string | null>(null);
+  const isEditing = raw !== null;
+  return (
+    <div className="flex items-center rounded-lg" style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
+      <span className="pl-2.5 pr-1 text-sm font-mono select-none flex-shrink-0" style={{ color: "var(--text-dim)" }}>$</span>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={isEditing ? raw : (value > 0 ? value.toFixed(2) : "")}
+        placeholder="0.00"
+        onChange={e => setRaw(e.target.value.replace(/[^0-9.]/g, ""))}
+        onFocus={() => setRaw("")}
+        onBlur={() => {
+          if (raw !== null && raw !== "") onChange(parseFloat(raw) || 0);
+          setRaw(null);
+        }}
+        className="flex-1 bg-transparent text-sm font-mono py-1 pr-2.5 outline-none w-20"
+        style={{ color: "var(--text)" }}
+      />
+    </div>
+  );
+}
+
 export function CreateOrderClient() {
   const router = useRouter();
 
@@ -465,15 +489,7 @@ export function CreateOrderClient() {
                           </div>
                         </td>
                         <td>
-                          <div className="relative">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs" style={{ color: "var(--text-dim)" }}>$</span>
-                            <input
-                              type="number" min="0" step="0.01" value={item.price}
-                              onChange={e => updateItemPrice(item.product_id, parseFloat(e.target.value) || 0)}
-                              onFocus={e => e.target.select()}
-                              className="input-field pl-5 py-1 text-sm font-mono w-full"
-                            />
-                          </div>
+                          <PriceInput value={item.price} onChange={v => updateItemPrice(item.product_id, v)} />
                         </td>
                         <td className="text-right font-mono text-sm font-semibold" style={{ color: "var(--text)" }}>
                           ${(item.price * item.quantity).toFixed(2)}
