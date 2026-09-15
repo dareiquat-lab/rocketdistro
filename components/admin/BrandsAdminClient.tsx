@@ -109,38 +109,6 @@ export function BrandsAdminClient() {
     }
   };
 
-  const BrandForm = ({ onSave }: { onSave: () => void }) => (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium mb-1" style={{ color: "var(--text)" }}>Brand Name</label>
-        <input
-          className="input-field w-full"
-          value={formName}
-          onChange={e => setFormName(e.target.value)}
-          placeholder="e.g. Red Bull"
-        />
-      </div>
-      <ImageUpload value={formImageUrl} onChange={setFormImageUrl} label="Brand Logo" />
-      <div>
-        <label className="block text-sm font-medium mb-1" style={{ color: "var(--text)" }}>Description</label>
-        <textarea
-          className="input-field w-full resize-none"
-          rows={3}
-          value={formDescription}
-          onChange={e => setFormDescription(e.target.value)}
-          placeholder="Optional description…"
-        />
-      </div>
-      {formError && <p className="text-sm" style={{ color: "var(--danger)" }}>{formError}</p>}
-      <div className="flex gap-2 justify-end">
-        <button className="btn-secondary" onClick={() => { setAddOpen(false); setEditBrand(null); }}>Cancel</button>
-        <button className="btn-primary" onClick={onSave} disabled={saving}>
-          {saving ? "Saving…" : "Save Brand"}
-        </button>
-      </div>
-    </div>
-  );
-
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -209,11 +177,69 @@ export function BrandsAdminClient() {
       )}
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add Brand" size="md">
-        <BrandForm onSave={handleSaveNew} />
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: "var(--text)" }}>Brand Name</label>
+            <input
+              className="input-field w-full"
+              value={formName}
+              onChange={e => setFormName(e.target.value)}
+              placeholder="e.g. Red Bull"
+              autoFocus
+            />
+          </div>
+          <ImageUpload value={formImageUrl} onChange={setFormImageUrl} label="Brand Logo" />
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: "var(--text)" }}>Description</label>
+            <textarea
+              className="input-field w-full resize-none"
+              rows={3}
+              value={formDescription}
+              onChange={e => setFormDescription(e.target.value)}
+              placeholder="Optional description…"
+            />
+          </div>
+          {formError && <p className="text-sm" style={{ color: "var(--danger)" }}>{formError}</p>}
+          <div className="flex gap-2 justify-end">
+            <button className="btn-secondary" onClick={() => setAddOpen(false)}>Cancel</button>
+            <button className="btn-primary" onClick={handleSaveNew} disabled={saving}>
+              {saving ? "Saving…" : "Save Brand"}
+            </button>
+          </div>
+        </div>
       </Modal>
 
       <Modal open={editBrand !== null} onClose={() => setEditBrand(null)} title="Edit Brand" size="md">
-        <BrandForm onSave={handleSaveEdit} />
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: "var(--text)" }}>Brand Name</label>
+            <input
+              className="input-field w-full"
+              value={formName}
+              onChange={e => setFormName(e.target.value)}
+              placeholder="e.g. Red Bull"
+              autoFocus
+            />
+          </div>
+          <ImageUpload value={formImageUrl} onChange={setFormImageUrl} label="Brand Logo" />
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: "var(--text)" }}>Description</label>
+            <textarea
+              className="input-field w-full resize-none"
+              rows={3}
+              value={formDescription}
+              onChange={e => setFormDescription(e.target.value)}
+              placeholder="Optional description…"
+            />
+          </div>
+          {formError && <p className="text-sm" style={{ color: "var(--danger)" }}>{formError}</p>}
+          <div className="flex gap-2 justify-end">
+            <button className="btn-secondary" onClick={() => setEditBrand(null)}>Cancel</button>
+            <button className="btn-primary" onClick={handleSaveEdit} disabled={saving}>
+              {saving ? "Saving…" : "Save Brand"}
+            </button>
+          </div>
+        </div>
       </Modal>
 
       <Modal open={deleteId !== null} onClose={() => setDeleteId(null)} title="Delete Brand" size="sm">
