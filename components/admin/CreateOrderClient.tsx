@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, Plus, Minus, X, ChevronLeft, ChevronRight,
-  User, Package, ShoppingCart, FileText, Tag,
+  User, Package, ShoppingCart, Tag, Mail, ChevronDown,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -25,15 +25,15 @@ interface CartItem {
 const LOW = 10;
 
 function StockBadge({ qty }: { qty: number }) {
-  if (qty === 0) return <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: "rgba(220,38,38,0.12)", color: "var(--danger)" }}>Out</span>;
-  if (qty <= LOW) return <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: "rgba(217,119,6,0.12)", color: "var(--warning)" }}>Low {qty}</span>;
+  if (qty === 0) return <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: "rgba(220,38,38,0.12)", color: "var(--danger)" }}>Out of stock</span>;
+  if (qty <= LOW) return <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: "rgba(217,119,6,0.12)", color: "var(--warning)" }}>Low — {qty} left</span>;
   return <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: "rgba(22,163,74,0.12)", color: "var(--success)" }}>{qty} in stock</span>;
 }
 
 export function CreateOrderClient() {
   const router = useRouter();
 
-  // ── Products panel ──────────────────────────────────────────────────────────
+  // ── Product catalog state ────────────────────────────────────────────────────
   const [products, setProducts] = useState<Product[]>([]);
   const [productTotal, setProductTotal] = useState(0);
   const [productPages, setProductPages] = useState(1);
@@ -44,18 +44,17 @@ export function CreateOrderClient() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
 
-  // ── Order panel ─────────────────────────────────────────────────────────────
+  // ── Order form state ─────────────────────────────────────────────────────────
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [showEmail, setShowEmail] = useState(false);
   const [businessName, setBusinessName] = useState("");
   const [clientType, setClientType] = useState("Retailer");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  const orderPanelRef = useRef<HTMLDivElement>(null);
 
   // debounce search
   useEffect(() => {
@@ -63,19 +62,17 @@ export function CreateOrderClient() {
     return () => clearTimeout(t);
   }, [productSearch]);
 
-  // fetch brands
   useEffect(() => {
     fetch("/api/admin/brands").then(r => r.ok ? r.json() : []).then(setBrands).catch(() => {});
   }, []);
 
-  // fetch products
   const fetchProducts = useCallback(async () => {
     setLoadingProducts(true);
     try {
       const params = new URLSearchParams({
         admin: "true", search: debouncedSearch, brand: filterBrand,
         sortBy: "product_name", sortDir: "asc",
-        page: String(productPage), limit: "24",
+        page: String(productPage), limit: "20",
       });
       const res = await fetch(`/api/products?${params}`);
       if (res.ok) {
@@ -111,25 +108,18 @@ export function CreateOrderClient() {
   };
 
   const setCartQty = (productId: number, qty: number) => {
-    if (qty <= 0) {
-      setCart(prev => prev.filter(c => c.product_id !== productId));
-    } else {
-      setCart(prev => prev.map(c => c.product_id === productId ? { ...c, quantity: qty } : c));
-    }
+    if (qty <= 0) setCart(prev => prev.filter(c => c.product_id !== productId));
+    else setCart(prev => prev.map(c => c.product_id === productId ? { ...c, quantity: qty } : c));
   };
 
-  const removeFromCart = (productId: number) => {
-    setCart(prev => prev.filter(c => c.product_id !== productId));
-  };
+  const removeFromCart = (productId: number) => setCart(prev => prev.filter(c => c.product_id !== productId));
 
-  const updateItemPrice = (productId: number, price: number) => {
+  const updateItemPrice = (productId: number, price: number) =>
     setCart(prev => prev.map(c => c.product_id === productId ? { ...c, price } : c));
-  };
 
   const addCustomItem = () => {
-    const tempId = -Date.now();
     setCart(prev => [...prev, {
-      product_id: tempId,
+      product_id: -Date.now(),
       product_name: "",
       product_sku: null,
       quantity: 1,
@@ -139,21 +129,20 @@ export function CreateOrderClient() {
     }]);
   };
 
-  const updateCustomItem = (productId: number, field: "product_name" | "product_sku" | "price" | "quantity", value: string | number) => {
+  const updateCustomItem = (productId: number, field: "product_name" | "product_sku" | "price" | "quantity", value: string | number) =>
     setCart(prev => prev.map(c => c.product_id === productId ? { ...c, [field]: value } : c));
-  };
 
   const orderTotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
 
   const handleClientSelect = (client: Client) => {
     setCustomerName(client.contact_name ?? client.business_name);
     setCustomerPhone(client.phone ?? "");
-    setCustomerEmail(client.email ?? "");
+    if (client.email) { setCustomerEmail(client.email); setShowEmail(true); }
     setBusinessName(client.business_name);
     setClientType(client.client_type);
   };
 
-  const canSubmit = customerName && customerPhone && customerEmail && cart.length > 0;
+  const canSubmit = customerName.trim() && customerPhone.trim() && cart.length > 0;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -196,123 +185,376 @@ export function CreateOrderClient() {
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden">
 
-      {/* ── Left: Product catalog ─────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 border-r" style={{ borderColor: "var(--border)" }}>
-        {/* Catalog toolbar */}
-        <div className="p-4 space-y-3 border-b flex-shrink-0" style={{ borderColor: "var(--border)" }}>
-          <div className="flex items-center gap-2">
-            <Link href="/admin/orders" className="p-1.5 rounded-lg hover:opacity-70 flex items-center gap-1 text-sm" style={{ color: "var(--text-muted)" }}>
-              <ChevronLeft size={16} /> Orders
-            </Link>
-          </div>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-dim)" }} />
-              <input
-                className="input-field pl-8"
-                placeholder="Search products…"
-                value={productSearch}
-                onChange={e => setProductSearch(e.target.value)}
-              />
+      {/* ── LEFT: Order form (main area) ───────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+
+        {/* Back nav */}
+        <div className="px-6 pt-4 pb-2 flex-shrink-0">
+          <Link href="/admin/orders" className="inline-flex items-center gap-1 text-sm hover:opacity-70 transition-opacity" style={{ color: "var(--text-muted)" }}>
+            <ChevronLeft size={15} /> Back to Orders
+          </Link>
+        </div>
+
+        <div className="px-6 pb-8 space-y-6 flex-1">
+
+          {/* ── Customer ──────────────────────────────────────────────────── */}
+          <div className="card space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "var(--accent)", color: "white" }}>
+                <User size={14} />
+              </div>
+              <h2 className="font-semibold" style={{ color: "var(--text)" }}>Customer</h2>
             </div>
-            <select
+
+            <ClientPicker onSelect={handleClientSelect} />
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">Name *</label>
+                <input
+                  className="input-field"
+                  placeholder="Full name"
+                  value={customerName}
+                  onChange={e => setCustomerName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="label">Phone *</label>
+                <input
+                  className="input-field"
+                  placeholder="Phone number"
+                  value={customerPhone}
+                  onChange={e => setCustomerPhone(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="label">Business Name</label>
+                <input
+                  className="input-field"
+                  placeholder="Optional"
+                  value={businessName}
+                  onChange={e => setBusinessName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="label">Client Type</label>
+                <select className="input-field" value={clientType} onChange={e => setClientType(e.target.value)}>
+                  {CLIENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Email toggle */}
+            {showEmail ? (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="label mb-0">Email</label>
+                  <button
+                    type="button"
+                    onClick={() => { setShowEmail(false); setCustomerEmail(""); }}
+                    className="text-xs flex items-center gap-1 hover:opacity-70"
+                    style={{ color: "var(--text-dim)" }}
+                  >
+                    <X size={11} /> Remove
+                  </button>
+                </div>
+                <input
+                  className="input-field"
+                  type="email"
+                  placeholder="customer@example.com"
+                  value={customerEmail}
+                  onChange={e => setCustomerEmail(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowEmail(true)}
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg hover:opacity-80 transition-opacity"
+                style={{ background: "var(--muted)", color: "var(--text-muted)" }}
+              >
+                <Mail size={13} /> Add Email
+              </button>
+            )}
+          </div>
+
+          {/* ── Items ─────────────────────────────────────────────────────── */}
+          <div className="card space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "var(--accent)", color: "white" }}>
+                  <ShoppingCart size={14} />
+                </div>
+                <h2 className="font-semibold" style={{ color: "var(--text)" }}>
+                  Items
+                  {cart.length > 0 && (
+                    <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full font-medium" style={{ background: "var(--muted)", color: "var(--text-muted)" }}>
+                      {cart.length}
+                    </span>
+                  )}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={addCustomItem}
+                className="btn-secondary py-1.5 px-3 text-xs"
+              >
+                <Plus size={12} /> Custom Item
+              </button>
+            </div>
+
+            {cart.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3 rounded-xl" style={{ background: "var(--muted)" }}>
+                <ShoppingCart size={32} style={{ color: "var(--text-dim)" }} />
+                <div className="text-center">
+                  <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>No items yet</p>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>Browse the catalog on the right and click Add →</p>
+                </div>
+              </div>
+            ) : (
+              <div className="table-container">
+                <table className="table-base">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th className="text-center w-32">Qty</th>
+                      <th className="w-28">Unit Price</th>
+                      <th className="text-right w-24">Total</th>
+                      <th className="w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cart.map(item => (
+                      <tr key={item.product_id}>
+                        <td>
+                          <div className="flex items-center gap-2.5">
+                            {item.product_id > 0 ? (
+                              item.image_url ? (
+                                <div className="relative w-9 h-9 rounded-lg overflow-hidden flex-shrink-0">
+                                  <Image src={item.image_url} alt={item.product_name} fill className="object-cover" sizes="36px" />
+                                </div>
+                              ) : (
+                                <div className="w-9 h-9 rounded-lg flex items-center justify-center text-base flex-shrink-0" style={{ background: "var(--muted)" }}>📦</div>
+                              )
+                            ) : null}
+                            <div className="min-w-0 flex-1">
+                              {item.product_id < 0 ? (
+                                <input
+                                  className="input-field text-sm py-1"
+                                  placeholder="Product name"
+                                  value={item.product_name}
+                                  onChange={e => updateCustomItem(item.product_id, "product_name", e.target.value)}
+                                />
+                              ) : (
+                                <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>{item.product_name}</p>
+                              )}
+                              {item.product_sku && (
+                                <p className="text-xs font-mono mt-0.5" style={{ color: "var(--text-dim)" }}>{item.product_sku}</p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => setCartQty(item.product_id, item.quantity - 1)}
+                              className="w-6 h-6 rounded flex items-center justify-center hover:opacity-70"
+                              style={{ background: "var(--muted)", color: "var(--text)" }}
+                            ><Minus size={10} /></button>
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={e => setCartQty(item.product_id, parseInt(e.target.value) || 1)}
+                              className="w-12 text-center text-sm font-mono rounded-lg border-0 outline-none h-6"
+                              style={{ background: "var(--muted)", color: "var(--text)" }}
+                            />
+                            <button
+                              onClick={() => setCartQty(item.product_id, item.quantity + 1)}
+                              className="w-6 h-6 rounded flex items-center justify-center hover:opacity-70"
+                              style={{ background: "var(--muted)", color: "var(--text)" }}
+                            ><Plus size={10} /></button>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs" style={{ color: "var(--text-dim)" }}>$</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.price}
+                              onChange={e => updateItemPrice(item.product_id, parseFloat(e.target.value) || 0)}
+                              className="input-field pl-5 py-1 text-sm font-mono w-full"
+                            />
+                          </div>
+                        </td>
+                        <td className="text-right font-mono text-sm font-semibold" style={{ color: "var(--text)" }}>
+                          ${(item.price * item.quantity).toFixed(2)}
+                        </td>
+                        <td>
+                          <button
+                            onClick={() => removeFromCart(item.product_id)}
+                            className="p-1.5 rounded hover:opacity-70"
+                            style={{ color: "var(--danger)" }}
+                          ><X size={13} /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Running total under table */}
+            {cart.length > 0 && (
+              <div className="flex items-center justify-end gap-3 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+                <span className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  {cart.reduce((s, c) => s + c.quantity, 0)} unit{cart.reduce((s, c) => s + c.quantity, 0) !== 1 ? "s" : ""}
+                </span>
+                <span className="text-xl font-bold font-mono" style={{ color: "var(--text)" }}>
+                  ${orderTotal.toFixed(2)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* ── Notes ─────────────────────────────────────────────────────── */}
+          <div className="card space-y-3">
+            <h2 className="font-semibold text-sm" style={{ color: "var(--text)" }}>Order Notes</h2>
+            <textarea
               className="input-field"
-              style={{ width: "auto", minWidth: "130px" }}
+              rows={3}
+              placeholder="Optional notes, special instructions, delivery info…"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
+          </div>
+
+          {/* ── Submit ────────────────────────────────────────────────────── */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleSubmit}
+              disabled={!canSubmit || saving}
+              className="btn-primary px-8 py-3 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? "Creating Order…" : "Create Order"}
+            </button>
+            <Link href="/admin/orders" className="text-sm hover:opacity-70 transition-opacity" style={{ color: "var(--text-muted)" }}>
+              Cancel
+            </Link>
+            {!canSubmit && (
+              <span className="text-xs" style={{ color: "var(--text-dim)" }}>
+                {cart.length === 0 ? "Add at least one item" : "Name and phone are required"}
+              </span>
+            )}
+          </div>
+
+          {error && (
+            <p className="text-sm px-4 py-3 rounded-lg" style={{ background: "rgba(220,38,38,0.1)", color: "var(--danger)" }}>{error}</p>
+          )}
+
+        </div>
+      </div>
+
+      {/* ── RIGHT: Product catalog (narrow sidebar) ───────────────────────── */}
+      <div className="w-72 xl:w-80 flex-shrink-0 flex flex-col border-l" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+
+        {/* Catalog header */}
+        <div className="px-4 py-3 border-b flex-shrink-0 space-y-2" style={{ borderColor: "var(--border)" }}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Catalog</span>
+            <span className="text-xs" style={{ color: "var(--text-dim)" }}>{productTotal} products</span>
+          </div>
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-dim)" }} />
+            <input
+              className="input-field pl-8 text-sm py-1.5"
+              placeholder="Search…"
+              value={productSearch}
+              onChange={e => setProductSearch(e.target.value)}
+            />
+          </div>
+          <div className="relative">
+            <Tag size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-dim)" }} />
+            <select
+              className="input-field pl-8 text-sm py-1.5 appearance-none"
               value={filterBrand}
               onChange={e => { setFilterBrand(e.target.value); setProductPage(1); }}
             >
               <option value="">All Brands</option>
               {brands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
             </select>
+            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--text-dim)" }} />
           </div>
-          <p className="text-xs" style={{ color: "var(--text-dim)" }}>
-            {productTotal.toLocaleString()} product{productTotal !== 1 ? "s" : ""}
-          </p>
         </div>
 
-        {/* Product grid */}
-        <div className="flex-1 overflow-y-auto p-4">
+        {/* Product list */}
+        <div className="flex-1 overflow-y-auto">
           {loadingProducts ? (
-            <div className="flex items-center justify-center h-40">
-              <p style={{ color: "var(--text-dim)" }}>Loading products…</p>
+            <div className="flex items-center justify-center h-32">
+              <p className="text-xs" style={{ color: "var(--text-dim)" }}>Loading…</p>
             </div>
           ) : products.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-40 gap-2">
-              <Package size={36} style={{ color: "var(--text-dim)" }} />
-              <p style={{ color: "var(--text-muted)" }}>No products found</p>
+            <div className="flex flex-col items-center justify-center h-32 gap-2">
+              <Package size={24} style={{ color: "var(--text-dim)" }} />
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>No products found</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="divide-y" style={{ borderColor: "var(--border)" }}>
               {products.map(p => {
                 const qty = cartQty(p.id);
                 const inCart = qty > 0;
                 return (
                   <div
                     key={p.id}
-                    className="rounded-xl p-3 flex flex-col gap-2 transition-all"
+                    className="p-3 flex flex-col gap-2"
                     style={{
-                      background: inCart ? "rgba(var(--accent-rgb, 59,130,246),0.06)" : "var(--surface)",
-                      border: `1px solid ${inCart ? "var(--accent)" : "var(--border)"}`,
+                      background: inCart ? "rgba(59,130,246,0.04)" : undefined,
+                      borderLeft: inCart ? "2px solid var(--accent)" : "2px solid transparent",
                     }}
                   >
-                    {/* Image + info */}
                     <div className="flex gap-2.5">
-                      <div className="flex-shrink-0">
-                        {p.image_url ? (
-                          <div className="relative w-12 h-12 rounded-lg overflow-hidden">
-                            <Image src={p.image_url} alt={p.product_name} fill className="object-cover" sizes="48px" />
-                          </div>
-                        ) : (
-                          <div className="w-12 h-12 rounded-lg flex items-center justify-center text-xl" style={{ background: "var(--muted)" }}>📦</div>
-                        )}
-                      </div>
+                      {p.image_url ? (
+                        <div className="relative w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                          <Image src={p.image_url} alt={p.product_name} fill className="object-cover" sizes="40px" />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center text-base flex-shrink-0" style={{ background: "var(--muted)" }}>📦</div>
+                      )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium leading-tight truncate" style={{ color: "var(--text)" }}>{p.product_name}</p>
+                        <p className="text-xs font-medium leading-tight" style={{ color: "var(--text)" }}>{p.product_name}</p>
                         <p className="text-xs font-mono mt-0.5" style={{ color: "var(--text-dim)" }}>{p.sku}</p>
-                        {p.brand && (
-                          <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
-                            <Tag size={10} />{p.brand}
-                          </p>
-                        )}
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-xs font-bold font-mono" style={{ color: "var(--accent)" }}>${Number(p.price).toFixed(2)}</span>
+                          <StockBadge qty={p.quantity} />
+                        </div>
                       </div>
                     </div>
 
-                    {/* Price + stock */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold font-mono" style={{ color: "var(--accent)" }}>${Number(p.price).toFixed(2)}</span>
-                      <StockBadge qty={p.quantity} />
-                    </div>
-
-                    {/* Add / qty stepper */}
                     {inCart ? (
-                      <div className="flex items-center gap-1 mt-auto">
+                      <div className="flex items-center gap-1">
                         <button
                           onClick={() => setCartQty(p.id, qty - 1)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center font-bold hover:opacity-70"
+                          className="w-6 h-6 rounded flex items-center justify-center hover:opacity-70"
                           style={{ background: "var(--muted)", color: "var(--text)" }}
-                        ><Minus size={12} /></button>
-                        <input
-                          type="number"
-                          min="1"
-                          value={qty}
-                          onChange={e => setCartQty(p.id, parseInt(e.target.value) || 1)}
-                          className="flex-1 text-center text-sm font-mono font-semibold rounded-lg h-7 border-0 outline-none"
-                          style={{ background: "var(--muted)", color: "var(--text)" }}
-                        />
+                        ><Minus size={10} /></button>
+                        <span className="flex-1 text-center text-xs font-mono font-semibold" style={{ color: "var(--accent)" }}>{qty} added</span>
                         <button
-                          onClick={() => setCartQty(p.id, qty + 1)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center font-bold hover:opacity-70"
+                          onClick={() => addToCart(p)}
+                          className="w-6 h-6 rounded flex items-center justify-center hover:opacity-70"
                           style={{ background: "var(--accent)", color: "white" }}
-                        ><Plus size={12} /></button>
+                        ><Plus size={10} /></button>
                       </div>
                     ) : (
                       <button
                         onClick={() => addToCart(p)}
                         disabled={p.quantity === 0}
-                        className="w-full h-7 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed mt-auto"
+                        className="w-full h-6 rounded text-xs font-semibold flex items-center justify-center gap-1 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
                         style={{ background: "var(--accent)", color: "white" }}
                       >
-                        <Plus size={12} /> Add
+                        <Plus size={11} /> Add to Order
                       </button>
                     )}
                   </div>
@@ -322,262 +564,26 @@ export function CreateOrderClient() {
           )}
         </div>
 
-        {/* Pagination */}
+        {/* Catalog pagination */}
         {productPages > 1 && (
-          <div className="flex items-center justify-center gap-2 p-3 border-t flex-shrink-0" style={{ borderColor: "var(--border)" }}>
-            <button className="btn-secondary py-1 px-2.5 text-xs" onClick={() => setProductPage(p => Math.max(1, p - 1))} disabled={productPage === 1}>
-              <ChevronLeft size={13} />
-            </button>
-            {Array.from({ length: Math.min(productPages, 7) }, (_, i) => {
-              const p = productPage <= 4 ? i + 1 : productPage + i - 3;
-              if (p < 1 || p > productPages) return null;
-              return (
-                <button
-                  key={p}
-                  onClick={() => setProductPage(p)}
-                  className="w-7 h-7 rounded text-xs font-medium"
-                  style={{
-                    background: p === productPage ? "var(--accent)" : "var(--surface)",
-                    color: p === productPage ? "white" : "var(--text)",
-                    border: "1px solid var(--border)",
-                  }}
-                >{p}</button>
-              );
-            })}
-            <button className="btn-secondary py-1 px-2.5 text-xs" onClick={() => setProductPage(p => Math.min(productPages, p + 1))} disabled={productPage === productPages}>
-              <ChevronRight size={13} />
-            </button>
+          <div className="flex items-center justify-between px-3 py-2 border-t flex-shrink-0" style={{ borderColor: "var(--border)" }}>
+            <button
+              className="p-1.5 rounded hover:opacity-70 disabled:opacity-40"
+              onClick={() => setProductPage(p => Math.max(1, p - 1))}
+              disabled={productPage === 1}
+              style={{ color: "var(--text-muted)" }}
+            ><ChevronLeft size={14} /></button>
+            <span className="text-xs" style={{ color: "var(--text-dim)" }}>
+              {productPage} / {productPages}
+            </span>
+            <button
+              className="p-1.5 rounded hover:opacity-70 disabled:opacity-40"
+              onClick={() => setProductPage(p => Math.min(productPages, p + 1))}
+              disabled={productPage === productPages}
+              style={{ color: "var(--text-muted)" }}
+            ><ChevronRight size={14} /></button>
           </div>
         )}
-      </div>
-
-      {/* ── Right: Order summary ──────────────────────────────────────────── */}
-      <div
-        ref={orderPanelRef}
-        className="w-[380px] xl:w-[420px] flex-shrink-0 flex flex-col overflow-y-auto"
-        style={{ background: "var(--surface)" }}
-      >
-        {/* Panel header */}
-        <div className="px-5 py-4 border-b flex-shrink-0 flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
-          <div className="flex items-center gap-2">
-            <ShoppingCart size={16} style={{ color: "var(--accent)" }} />
-            <span className="font-semibold text-sm" style={{ color: "var(--text)" }}>Order Summary</span>
-          </div>
-          {cart.length > 0 && (
-            <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: "var(--accent)", color: "white" }}>
-              {cart.reduce((s, c) => s + c.quantity, 0)} items
-            </span>
-          )}
-        </div>
-
-        <div className="flex-1 flex flex-col gap-0">
-
-          {/* Customer section */}
-          <div className="px-5 py-4 border-b space-y-3" style={{ borderColor: "var(--border)" }}>
-            <div className="flex items-center gap-2 mb-1">
-              <User size={14} style={{ color: "var(--text-muted)" }} />
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Customer</span>
-            </div>
-            <ClientPicker onSelect={handleClientSelect} />
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="label text-xs">Name *</label>
-                <input
-                  className="input-field text-sm"
-                  placeholder="Full name"
-                  value={customerName}
-                  onChange={e => setCustomerName(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="label text-xs">Phone *</label>
-                <input
-                  className="input-field text-sm"
-                  placeholder="Phone"
-                  value={customerPhone}
-                  onChange={e => setCustomerPhone(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="label text-xs">Email *</label>
-                <input
-                  className="input-field text-sm"
-                  placeholder="Email"
-                  value={customerEmail}
-                  onChange={e => setCustomerEmail(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="label text-xs">Business</label>
-                <input
-                  className="input-field text-sm"
-                  placeholder="Business name"
-                  value={businessName}
-                  onChange={e => setBusinessName(e.target.value)}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="label text-xs">Client Type</label>
-              <select className="input-field text-sm" value={clientType} onChange={e => setClientType(e.target.value)}>
-                {CLIENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Items section */}
-          <div className="px-5 py-4 flex-1 border-b" style={{ borderColor: "var(--border)" }}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <FileText size={14} style={{ color: "var(--text-muted)" }} />
-                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Items</span>
-              </div>
-              <button
-                type="button"
-                className="text-xs flex items-center gap-1 px-2 py-1 rounded-lg hover:opacity-80"
-                style={{ background: "var(--muted)", color: "var(--text-muted)" }}
-                onClick={addCustomItem}
-              >
-                <Plus size={11} /> Custom
-              </button>
-            </div>
-
-            {cart.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 gap-2">
-                <ShoppingCart size={28} style={{ color: "var(--text-dim)" }} />
-                <p className="text-sm" style={{ color: "var(--text-dim)" }}>No items yet</p>
-                <p className="text-xs text-center" style={{ color: "var(--text-dim)" }}>Click + Add on a product</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {cart.map(item => (
-                  <div key={item.product_id} className="rounded-xl p-2.5 space-y-2" style={{ background: "var(--muted)" }}>
-                    <div className="flex items-start gap-2">
-                      {item.product_id > 0 ? (
-                        <div className="flex-shrink-0 mt-0.5">
-                          {item.image_url ? (
-                            <div className="relative w-8 h-8 rounded-lg overflow-hidden">
-                              <Image src={item.image_url} alt={item.product_name} fill className="object-cover" sizes="32px" />
-                            </div>
-                          ) : (
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{ background: "var(--border)" }}>📦</div>
-                          )}
-                        </div>
-                      ) : null}
-                      <div className="flex-1 min-w-0">
-                        {item.product_id < 0 ? (
-                          <input
-                            className="input-field text-xs py-1 mb-1"
-                            placeholder="Product name"
-                            value={item.product_name}
-                            onChange={e => updateCustomItem(item.product_id, "product_name", e.target.value)}
-                            style={{ background: "var(--background)" }}
-                          />
-                        ) : (
-                          <p className="text-xs font-medium leading-tight" style={{ color: "var(--text)" }}>{item.product_name}</p>
-                        )}
-                        {item.product_sku && (
-                          <p className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>{item.product_sku}</p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => removeFromCart(item.product_id)}
-                        className="p-1 rounded hover:opacity-70 flex-shrink-0"
-                        style={{ color: "var(--danger)" }}
-                      >
-                        <X size={13} />
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setCartQty(item.product_id, item.quantity - 1)}
-                          className="w-6 h-6 rounded flex items-center justify-center hover:opacity-70"
-                          style={{ background: "var(--border)", color: "var(--text)" }}
-                        ><Minus size={10} /></button>
-                        <input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={e => setCartQty(item.product_id, parseInt(e.target.value) || 1)}
-                          className="w-10 text-center text-xs font-mono rounded border-0 outline-none h-6"
-                          style={{ background: "var(--border)", color: "var(--text)" }}
-                        />
-                        <button
-                          onClick={() => setCartQty(item.product_id, item.quantity + 1)}
-                          className="w-6 h-6 rounded flex items-center justify-center hover:opacity-70"
-                          style={{ background: "var(--border)", color: "var(--text)" }}
-                        ><Plus size={10} /></button>
-                      </div>
-                      <span className="text-xs" style={{ color: "var(--text-dim)" }}>×</span>
-                      <div className="flex-1 relative">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: "var(--text-dim)" }}>$</span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.price}
-                          onChange={e => updateItemPrice(item.product_id, parseFloat(e.target.value) || 0)}
-                          className="input-field pl-5 py-1 text-xs font-mono w-full"
-                          style={{ background: "var(--background)" }}
-                        />
-                      </div>
-                      <span className="text-xs font-mono font-semibold whitespace-nowrap" style={{ color: "var(--text)" }}>
-                        ${(item.price * item.quantity).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Notes + Total + Submit */}
-          <div className="px-5 py-4 space-y-4 flex-shrink-0">
-            <div>
-              <label className="label text-xs">Order Notes</label>
-              <textarea
-                className="input-field text-sm"
-                rows={2}
-                placeholder="Optional notes for this order…"
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-              />
-            </div>
-
-            {/* Total */}
-            <div className="rounded-xl p-3 flex items-center justify-between" style={{ background: "var(--muted)" }}>
-              <span className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>Order Total</span>
-              <span className="text-lg font-bold font-mono" style={{ color: "var(--text)" }}>${orderTotal.toFixed(2)}</span>
-            </div>
-
-            {error && (
-              <p className="text-xs px-3 py-2 rounded-lg" style={{ background: "rgba(220,38,38,0.1)", color: "var(--danger)" }}>{error}</p>
-            )}
-
-            {!canSubmit && (
-              <p className="text-xs" style={{ color: "var(--text-dim)" }}>
-                {cart.length === 0 ? "Add at least one product to continue." : "Fill in customer name, phone, and email."}
-              </p>
-            )}
-
-            <button
-              onClick={handleSubmit}
-              disabled={!canSubmit || saving}
-              className="w-full btn-primary py-3 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? "Creating Order…" : "Create Order"}
-            </button>
-
-            <Link
-              href="/admin/orders"
-              className="w-full text-center block text-sm py-2 rounded-lg hover:opacity-70 transition-opacity"
-              style={{ color: "var(--text-muted)" }}
-            >
-              Cancel
-            </Link>
-          </div>
-        </div>
       </div>
     </div>
   );
