@@ -16,7 +16,6 @@ export function StorefrontNav() {
   const navLinks = [
     { href: "/", label: "Home" },
     { href: "/products", label: "Products" },
-    { href: "/categories", label: "Categories" },
     { href: "/brands", label: "Brands" },
     { href: "/staff", label: "Staff" },
   ];

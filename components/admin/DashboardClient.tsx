@@ -7,7 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import type { DashboardStats } from "@/types";
 import { ORDER_STATUSES } from "@/types";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+  Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend,
 } from "recharts";
 
@@ -59,7 +59,7 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
       icon: <Package size={18} />,
       color: "#2563eb",
       href: "/admin/inventory",
-      sub: `${stats.totalCategories} categories`,
+      sub: "in catalog",
     },
     {
       label: "Total Units",
@@ -117,8 +117,6 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
     color: STATUS_META[row.status]?.color ?? "#64748b",
   }));
 
-  const barData = stats.categoryBreakdown.filter(c => c.count > 0);
-
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -157,53 +155,6 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
 
       {/* Charts row */}
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Category bar chart */}
-        <div className="card" style={{ cursor: "pointer" }} onClick={() => router.push("/admin/inventory")}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-sm" style={{ color: "var(--text)" }}>Products by Category</h3>
-            <a href="/admin/inventory" className="text-xs flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
-              View all <ArrowRight size={12} />
-            </a>
-          </div>
-          {barData.length === 0 ? (
-            <div className="flex items-center justify-center h-40">
-              <p className="text-sm" style={{ color: "var(--text-dim)" }}>No products yet</p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={barData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                <XAxis
-                  dataKey="category"
-                  tick={{ fontSize: 11, fill: "var(--text-muted)" }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "var(--text-muted)" }}
-                  tickLine={false}
-                  axisLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                  cursor={{ fill: "var(--muted)" }}
-                  formatter={(v) => [v, "Products"]}
-                />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                  {barData.map((_, i) => (
-                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
         {/* Order status pie */}
         <div className="card" style={{ cursor: "pointer" }} onClick={() => router.push("/admin/orders")}>
           <div className="flex items-center justify-between mb-4">
@@ -306,7 +257,6 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
                 <thead>
                   <tr>
                     <th>Product</th>
-                    <th>Category</th>
                     <th>SKU</th>
                     <th className="text-right">Qty</th>
                   </tr>
@@ -315,7 +265,6 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
                   {stats.recentlyUpdated.map((p) => (
                     <tr key={p.id} style={{ cursor: "pointer" }} onClick={() => router.push(`/admin/products/${p.id}`)}>
                       <td className="whitespace-nowrap" style={{ color: "var(--text)" }}>{p.product_name}</td>
-                      <td className="whitespace-nowrap" style={{ color: "var(--text-muted)" }}>{p.category}</td>
                       <td className="font-mono text-xs whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{p.sku}</td>
                       <td className="text-right font-mono font-bold" style={{ color: "var(--text)" }}>{p.quantity}</td>
                     </tr>

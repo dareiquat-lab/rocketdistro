@@ -34,13 +34,6 @@ export function ReportPrintClient({ data }: ReportPrintClientProps) {
     return s + items.reduce((is, i) => is + Number(i.price) * i.quantity, 0);
   }, 0);
 
-  const categoryTotals = data.products.reduce<Record<string, { count: number; value: number }>>((acc, p) => {
-    if (!acc[p.category]) acc[p.category] = { count: 0, value: 0 };
-    acc[p.category].count++;
-    acc[p.category].value += Number(p.price) * p.quantity;
-    return acc;
-  }, {});
-
   return (
     <div className="max-w-3xl mx-auto p-8 bg-white text-slate-900 min-h-screen text-sm">
       <style>{`@media print { .no-print { display: none !important; } }`}</style>
@@ -122,28 +115,7 @@ export function ReportPrintClient({ data }: ReportPrintClientProps) {
         </div>
       )}
 
-      {/* Category totals */}
-      <div className="mb-6">
-        <h2 className="font-bold text-base mb-3 text-slate-700">Inventory by Category</h2>
-        <table className="w-full border-collapse text-xs">
-          <thead>
-            <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
-              <th className="text-left py-1.5 text-slate-400">Category</th>
-              <th className="text-right py-1.5 text-slate-400">Products</th>
-              <th className="text-right py-1.5 text-slate-400">Stock Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(categoryTotals).map(([cat, info]) => (
-              <tr key={cat} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                <td className="py-1.5">{cat}</td>
-                <td className="py-1.5 text-right">{info.count}</td>
-                <td className="py-1.5 text-right font-mono">${info.value.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+
 
       {/* Low stock */}
       {data.lowStock.length > 0 && (

@@ -7,20 +7,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
-import type { Product, CategoryRecord } from "@/types";
+import type { Product } from "@/types";
 
 const LOW_STOCK_THRESHOLD = 10;
 
 export function InventoryClient() {
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<CategoryRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [category, setCategory] = useState(() => searchParams.get("category") ?? "");
   const [brand, setBrand] = useState(() => searchParams.get("brand") ?? "");
   const [sortBy, setSortBy] = useState("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -39,7 +37,7 @@ export function InventoryClient() {
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        admin: "true", search: debouncedSearch, category, brand,
+        admin: "true", search: debouncedSearch, brand,
         sortBy, sortDir, page: String(page), limit: "25",
       });
       const res = await fetch(`/api/products?${params}`);
@@ -52,15 +50,9 @@ export function InventoryClient() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, category, brand, sortBy, sortDir, page]);
+  }, [debouncedSearch, brand, sortBy, sortDir, page]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
-
-  useEffect(() => {
-    fetch("/api/admin/categories")
-      .then(r => r.ok ? r.json() : [])
-      .then(data => setCategories(Array.isArray(data) ? data : []));
-  }, []);
 
   const toggleSort = (col: string) => {
     if (sortBy === col) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -140,27 +132,18 @@ export function InventoryClient() {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-dim)" }} />
           <input
             className="input-field pl-8"
-            placeholder="Search name, SKU, category, barcode…"
+            placeholder="Search name, SKU, barcode…"
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
           />
         </div>
-        {brand ? (
+        {brand && (
           <div className="flex items-center gap-2 px-3 rounded-lg text-sm font-medium" style={{ background: "var(--accent)", color: "#fff" }}>
             <span>{brand}</span>
             <button onClick={() => { setBrand(""); setPage(1); }} className="hover:opacity-70">
               <X size={13} />
             </button>
           </div>
-        ) : (
-          <select
-            className="input-field w-full sm:w-44"
-            value={category}
-            onChange={e => { setCategory(e.target.value); setPage(1); }}
-          >
-            <option value="">All Categories</option>
-            {categories.map(c => <option key={c.id} value={c.name}>{c.icon} {c.name}</option>)}
-          </select>
         )}
         <div className="flex gap-2">
           {selected.size > 0 && (
@@ -190,9 +173,6 @@ export function InventoryClient() {
               <th className="cursor-pointer select-none" onClick={() => toggleSort("product_name")}>
                 <span className="flex items-center gap-1">Name <SortIcon col="product_name" /></span>
               </th>
-              <th className="cursor-pointer select-none" onClick={() => toggleSort("category")}>
-                <span className="flex items-center gap-1">Category <SortIcon col="category" /></span>
-              </th>
               <th>Brand</th>
               <th className="cursor-pointer select-none" onClick={() => toggleSort("quantity")}>
                 <span className="flex items-center gap-1">Qty <SortIcon col="quantity" /></span>
@@ -210,10 +190,10 @@ export function InventoryClient() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={11} className="py-12 text-center" style={{ color: "var(--text-dim)" }}>Loading…</td></tr>
+              <tr><td colSpan={10} className="py-12 text-center" style={{ color: "var(--text-dim)" }}>Loading…</td></tr>
             ) : products.length === 0 ? (
               <tr>
-                <td colSpan={11} className="py-12 text-center">
+                <td colSpan={10} className="py-12 text-center">
                   <Package size={40} className="mx-auto mb-3" style={{ color: "var(--text-dim)" }} />
                   <p style={{ color: "var(--text-muted)" }}>No products found</p>
                 </td>
@@ -239,9 +219,6 @@ export function InventoryClient() {
                   <Link href={`/admin/products/${p.id}`} className="font-medium hover:underline" style={{ color: "var(--text)" }}>
                     {p.product_name}
                   </Link>
-                </td>
-                <td>
-                  <Badge variant="default">{p.category}</Badge>
                 </td>
                 <td>
                   <span className="text-xs" style={{ color: "var(--text-muted)" }}>{p.brand ?? "—"}</span>

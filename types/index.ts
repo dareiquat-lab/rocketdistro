@@ -1,7 +1,6 @@
 export interface Product {
   id: number;
   product_name: string;
-  category: string;
   sku: string;
   quantity: number;
   price: number;
@@ -61,19 +60,8 @@ export interface Client {
   city: string | null;
   state: string | null;
   zip: string | null;
-  tobacco_license_number: string | null;
-  sellers_permit_number: string | null;
   client_type: string;
   notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CategoryRecord {
-  id: number;
-  name: string;
-  description: string | null;
-  icon: string;
   created_at: string;
   updated_at: string;
 }
@@ -83,8 +71,6 @@ export interface DashboardStats {
   totalUnits: number;
   lowStockCount: number;
   recentlyUpdated: Product[];
-  categoryBreakdown: { category: string; icon: string; count: number }[];
-  totalCategories: number;
   newOrdersCount: number;
   monthlyProfit: number;
   monthlyRevenue: number;
@@ -99,7 +85,6 @@ export interface CartItem {
   sku: string;
   price: number;
   image_url: string | null;
-  category: string;
   quantity: number;
   stock: number;
 }
@@ -128,7 +113,6 @@ export interface SupplierInvoiceItem {
   id: number;
   invoice_id: number;
   product_name: string;
-  category: string | null;
   quantity: number;
   unit_cost: number;
 }

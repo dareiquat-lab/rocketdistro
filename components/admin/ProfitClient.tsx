@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { TrendingUp, DollarSign, Package, ShoppingCart, RefreshCw } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 interface ProfitStats {
   revenue: number;
@@ -19,7 +18,6 @@ interface AllTime {
 interface InventoryRow {
   id: number;
   product_name: string;
-  category: string;
   sku: string;
   quantity: number;
   price: number;
@@ -29,20 +27,10 @@ interface InventoryRow {
   margin_pct: number;
 }
 
-interface CategoryRow {
-  category: string;
-  icon: string;
-  products: number;
-  stock_value: number;
-  potential_profit: number;
-  avg_margin: number;
-}
-
 interface ProfitData {
   stats: ProfitStats;
   allTime: AllTime;
   inventory: InventoryRow[];
-  categories: CategoryRow[];
   sales: unknown[];
 }
 
@@ -144,56 +132,6 @@ export function ProfitClient() {
         </div>
       </div>
 
-      {/* Category chart */}
-      {data?.categories && data.categories.length > 0 && (
-        <div className="card">
-          <h3 className="font-semibold text-sm mb-4" style={{ color: "var(--text)" }}>Potential Profit by Category</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={data.categories} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-              <XAxis dataKey="category" tick={{ fontSize: 11, fill: "var(--text-muted)" }} />
-              <YAxis tick={{ fontSize: 11, fill: "var(--text-muted)" }} />
-              <Tooltip
-                contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8 }}
-                formatter={(v) => [`$${Number(v).toFixed(2)}`, "Potential Profit"]}
-              />
-              <Bar dataKey="potential_profit" radius={[4, 4, 0, 0]}>
-                {data.categories.map((_, i) => (
-                  <Cell key={i} fill="var(--accent)" fillOpacity={0.7 + (i % 3) * 0.1} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* Category table */}
-      {data?.categories && data.categories.length > 0 && (
-        <div className="table-container">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th>Products</th>
-                <th>Stock Value</th>
-                <th>Potential Profit</th>
-                <th>Avg Margin %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.categories.map(cat => (
-                <tr key={cat.category}>
-                  <td><span className="mr-2">{cat.icon}</span><span style={{ color: "var(--text)" }}>{cat.category}</span></td>
-                  <td style={{ color: "var(--text-muted)" }}>{cat.products}</td>
-                  <td className="font-mono text-sm">${Number(cat.stock_value).toFixed(2)}</td>
-                  <td className="font-mono text-sm" style={{ color: "var(--success)" }}>${Number(cat.potential_profit).toFixed(2)}</td>
-                  <td><span className="font-mono text-sm">{Number(cat.avg_margin).toFixed(1)}%</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
       {/* Product table */}
       {data?.inventory && data.inventory.length > 0 && (
         <div className="table-container">
@@ -201,7 +139,6 @@ export function ProfitClient() {
             <thead>
               <tr>
                 <th>Product</th>
-                <th>Category</th>
                 <th>SKU</th>
                 <th>Qty</th>
                 <th>Price</th>
@@ -216,7 +153,6 @@ export function ProfitClient() {
               {data.inventory.map(p => (
                 <tr key={p.id}>
                   <td className="font-medium" style={{ color: "var(--text)" }}>{p.product_name}</td>
-                  <td style={{ color: "var(--text-muted)" }}>{p.category}</td>
                   <td className="font-mono text-xs" style={{ color: "var(--text-dim)" }}>{p.sku}</td>
                   <td className="font-mono text-sm">{p.quantity}</td>
                   <td className="font-mono text-sm">${Number(p.price).toFixed(2)}</td>

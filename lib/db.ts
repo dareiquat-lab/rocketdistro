@@ -1,5 +1,5 @@
 import { neon } from "@neondatabase/serverless";
-import type { Product, Order, OrderItem, Client, CategoryRecord, DashboardStats, Brand } from "@/types";
+import type { Product, Order, OrderItem, Client, DashboardStats, Brand } from "@/types";
 
 export const sql = neon(
   process.env.DATABASE_URL ?? "postgresql://placeholder:placeholder@localhost/placeholder",
@@ -15,7 +15,6 @@ export async function ensureProductsTable() {
     CREATE TABLE IF NOT EXISTS products (
       id SERIAL PRIMARY KEY,
       product_name TEXT NOT NULL,
-      category TEXT NOT NULL,
       sku TEXT UNIQUE NOT NULL,
       quantity INTEGER NOT NULL DEFAULT 0,
       price NUMERIC(10,2) NOT NULL DEFAULT 0,
@@ -27,7 +26,6 @@ export async function ensureProductsTable() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
-  await sql`CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_products_quantity ON products(quantity)`;
@@ -35,19 +33,6 @@ export async function ensureProductsTable() {
 
 export async function ensureProductCostColumn() {
   await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS cost NUMERIC(10,2) NOT NULL DEFAULT 0`;
-}
-
-export async function ensureCategoriesTable() {
-  await sql`
-    CREATE TABLE IF NOT EXISTS categories (
-      id SERIAL PRIMARY KEY,
-      name TEXT UNIQUE NOT NULL,
-      description TEXT,
-      icon TEXT NOT NULL DEFAULT '📦',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `;
 }
 
 export async function ensureClientsTable() {
@@ -62,8 +47,6 @@ export async function ensureClientsTable() {
       city TEXT,
       state TEXT,
       zip TEXT,
-      tobacco_license_number TEXT,
-      sellers_permit_number TEXT,
       client_type TEXT NOT NULL DEFAULT 'Retailer',
       notes TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -166,32 +149,6 @@ export async function getEmailLog(limit = 100) {
   return rows;
 }
 
-// ─── SKU Generation ───────────────────────────────────────────────────────────
-
-const CATEGORY_PREFIXES: Record<string, string> = {
-  general: "GEN",
-  beverages: "BVR",
-  snacks: "SNK",
-  tobacco: "TOB",
-  electronics: "ELC",
-  accessories: "ACC",
-  health: "HLT",
-  cleaning: "CLN",
-  "paper goods": "PPR",
-  candy: "CND",
-};
-
-export function generateSKU(category: string, existingSkus: string[]): string {
-  const key = category.toLowerCase();
-  const prefix = CATEGORY_PREFIXES[key] ?? category.slice(0, 3).toUpperCase();
-  const matching = existingSkus.filter((s) => s.startsWith(prefix + "-"));
-  let next = matching.length + 1;
-  while (existingSkus.includes(`${prefix}-${String(next).padStart(3, "0")}`)) {
-    next++;
-  }
-  return `${prefix}-${String(next).padStart(3, "0")}`;
-}
-
 // ─── Order Number ─────────────────────────────────────────────────────────────
 
 export async function generateOrderNumber(): Promise<string> {
@@ -216,7 +173,6 @@ export async function generateOrderNumber(): Promise<string> {
 
 export async function getProducts(filters: {
   search?: string;
-  category?: string;
   brand?: string;
   sortBy?: string;
   sortDir?: "asc" | "desc";
@@ -227,7 +183,6 @@ export async function getProducts(filters: {
   await ensureProductsTable();
   const {
     search = "",
-    category = "",
     brand = "",
     sortDir = "asc",
     page = 1,
@@ -235,7 +190,7 @@ export async function getProducts(filters: {
     lowStock = false,
   } = filters;
 
-  const validSortColumns = ["product_name", "category", "sku", "quantity", "price", "cost", "created_at", "updated_at"];
+  const validSortColumns = ["product_name", "sku", "quantity", "price", "cost", "created_at", "updated_at"];
   const safeSort = validSortColumns.includes(filters.sortBy ?? "") ? filters.sortBy! : "created_at";
   const safeDir = sortDir === "desc" ? "DESC" : "ASC";
   const offset = (page - 1) * limit;
@@ -245,80 +200,26 @@ export async function getProducts(filters: {
   let countRows: Record<string, unknown>[];
 
   if (lowStock) {
-    if (category) {
-      rows = await sql`
-        SELECT * FROM products
-        WHERE quantity <= ${LOW_STOCK_THRESHOLD}
-        AND category = ${category}
-        AND (${brand} = '' OR brand = ${brand})
-        AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
-        ORDER BY quantity ASC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
-      countRows = await sql`
-        SELECT COUNT(*) as count FROM products
-        WHERE quantity <= ${LOW_STOCK_THRESHOLD}
-        AND category = ${category}
-        AND (${brand} = '' OR brand = ${brand})
-        AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
-      `;
-    } else {
-      rows = await sql`
-        SELECT * FROM products
-        WHERE quantity <= ${LOW_STOCK_THRESHOLD}
-        AND (${brand} = '' OR brand = ${brand})
-        AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
-        ORDER BY quantity ASC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
-      countRows = await sql`
-        SELECT COUNT(*) as count FROM products
-        WHERE quantity <= ${LOW_STOCK_THRESHOLD}
-        AND (${brand} = '' OR brand = ${brand})
-        AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
-      `;
-    }
-  } else if (category) {
-    if (safeSort === "created_at") {
-      rows = await sql`
-        SELECT * FROM products
-        WHERE category = ${category}
-        AND (${brand} = '' OR brand = ${brand})
-        AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
-        ORDER BY created_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
-    } else if (safeDir === "DESC") {
-      rows = await sql`
-        SELECT * FROM products
-        WHERE category = ${category}
-        AND (${brand} = '' OR brand = ${brand})
-        AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
-        ORDER BY product_name DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
-    } else {
-      rows = await sql`
-        SELECT * FROM products
-        WHERE category = ${category}
-        AND (${brand} = '' OR brand = ${brand})
-        AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
-        ORDER BY product_name ASC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
-    }
+    rows = await sql`
+      SELECT * FROM products
+      WHERE quantity <= ${LOW_STOCK_THRESHOLD}
+      AND (${brand} = '' OR brand = ${brand})
+      AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
+      ORDER BY quantity ASC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
     countRows = await sql`
       SELECT COUNT(*) as count FROM products
-      WHERE category = ${category}
+      WHERE quantity <= ${LOW_STOCK_THRESHOLD}
       AND (${brand} = '' OR brand = ${brand})
-      AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
+      AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
     `;
   } else {
     if (safeSort === "created_at") {
       rows = await sql`
         SELECT * FROM products
         WHERE (${brand} = '' OR brand = ${brand})
-        AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
+        AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
         ORDER BY created_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
@@ -326,7 +227,7 @@ export async function getProducts(filters: {
       rows = await sql`
         SELECT * FROM products
         WHERE (${brand} = '' OR brand = ${brand})
-        AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
+        AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
         ORDER BY product_name DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
@@ -334,7 +235,7 @@ export async function getProducts(filters: {
       rows = await sql`
         SELECT * FROM products
         WHERE (${brand} = '' OR brand = ${brand})
-        AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
+        AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
         ORDER BY product_name ASC
         LIMIT ${limit} OFFSET ${offset}
       `;
@@ -342,7 +243,7 @@ export async function getProducts(filters: {
     countRows = await sql`
       SELECT COUNT(*) as count FROM products
       WHERE (${brand} = '' OR brand = ${brand})
-      AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR category ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
+      AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm} OR barcode ILIKE ${searchTerm})
     `;
   }
 
@@ -364,14 +265,13 @@ export async function getProductByBarcode(code: string): Promise<Product | null>
 
 export async function getStorefrontProducts(filters: {
   search?: string;
-  category?: string;
   brand?: string;
   page?: number;
   limit?: number;
 }) {
   await ensureProductsTable();
   await ensureProductBrandColumn();
-  const { search = "", category = "", brand = "", page = 1, limit = 24 } = filters;
+  const { search = "", brand = "", page = 1, limit = 24 } = filters;
   const searchTerm = `%${search}%`;
   const offset = (page - 1) * limit;
 
@@ -380,7 +280,7 @@ export async function getStorefrontProducts(filters: {
 
   if (brand) {
     rows = await sql`
-      SELECT id, product_name, category, sku, quantity, price, image_url, notes, brand
+      SELECT id, product_name, sku, quantity, price, image_url, notes, brand
       FROM products
       WHERE brand = ${brand}
       AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm})
@@ -390,25 +290,11 @@ export async function getStorefrontProducts(filters: {
     countRows = await sql`
       SELECT COUNT(*) as count FROM products
       WHERE brand = ${brand}
-      AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm})
-    `;
-  } else if (category) {
-    rows = await sql`
-      SELECT id, product_name, category, sku, quantity, price, image_url, notes, brand
-      FROM products
-      WHERE category = ${category}
-      AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm})
-      ORDER BY product_name ASC
-      LIMIT ${limit} OFFSET ${offset}
-    `;
-    countRows = await sql`
-      SELECT COUNT(*) as count FROM products
-      WHERE category = ${category}
       AND (${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm})
     `;
   } else {
     rows = await sql`
-      SELECT id, product_name, category, sku, quantity, price, image_url, notes, brand
+      SELECT id, product_name, sku, quantity, price, image_url, notes, brand
       FROM products
       WHERE ${search} = '' OR product_name ILIKE ${searchTerm} OR sku ILIKE ${searchTerm}
       ORDER BY product_name ASC
@@ -426,7 +312,6 @@ export async function getStorefrontProducts(filters: {
 
 export async function createProduct(data: {
   product_name: string;
-  category: string;
   sku: string;
   quantity: number;
   price: number;
@@ -442,16 +327,15 @@ export async function createProduct(data: {
   const qty = Math.max(0, Math.round(Number(data.quantity) || 0));
   const cost = Number(data.cost) || 0;
   const price = Number(data.price) || 0;
-  // Resolve brand image separately to avoid a subquery inside VALUES
   let imageUrl = data.image_url ?? null;
   if (!imageUrl && data.brand) {
     const brandRows = await sql`SELECT image_url FROM brands WHERE name = ${data.brand} LIMIT 1`;
     imageUrl = (brandRows[0]?.image_url as string | null) ?? null;
   }
   const rows = await sql`
-    INSERT INTO products (product_name, category, sku, quantity, price, cost, image_url, barcode, notes, brand)
+    INSERT INTO products (product_name, sku, quantity, price, cost, image_url, barcode, notes, brand)
     VALUES (
-      ${data.product_name}, ${data.category}, ${data.sku}, ${qty}, ${price}, ${cost},
+      ${data.product_name}, ${data.sku}, ${qty}, ${price}, ${cost},
       ${imageUrl}, ${data.barcode ?? null}, ${data.notes ?? null}, ${data.brand ?? null}
     )
     RETURNING *
@@ -461,7 +345,6 @@ export async function createProduct(data: {
 
 export async function updateProduct(id: number, data: Partial<{
   product_name: string;
-  category: string;
   sku: string;
   quantity: number;
   price: number;
@@ -476,7 +359,6 @@ export async function updateProduct(id: number, data: Partial<{
   const rows = await sql`
     UPDATE products SET
       product_name = COALESCE(${data.product_name ?? null}, product_name),
-      category = COALESCE(${data.category ?? null}, category),
       sku = COALESCE(${data.sku ?? null}, sku),
       quantity = COALESCE(${data.quantity ?? null}, quantity),
       price = COALESCE(${data.price ?? null}, price),
@@ -505,64 +387,8 @@ export async function bulkDeleteProducts(ids: number[]): Promise<void> {
 
 export async function getAllProductsForExport(): Promise<Product[]> {
   await ensureProductsTable();
-  const rows = await sql`SELECT * FROM products ORDER BY category, product_name`;
+  const rows = await sql`SELECT * FROM products ORDER BY product_name`;
   return rows as unknown as Product[];
-}
-
-// ─── Categories ───────────────────────────────────────────────────────────────
-
-export async function getCategories(): Promise<CategoryRecord[]> {
-  await ensureCategoriesTable();
-  const rows = await sql`SELECT * FROM categories ORDER BY name`;
-  return rows as CategoryRecord[];
-}
-
-export async function getCategoryWithProductCount(): Promise<(CategoryRecord & { product_count: number })[]> {
-  await ensureCategoriesTable();
-  await ensureProductsTable();
-  const rows = await sql`
-    SELECT c.*, COUNT(p.id)::int as product_count
-    FROM categories c
-    LEFT JOIN products p ON p.category = c.name
-    GROUP BY c.id
-    ORDER BY c.name
-  `;
-  return rows as (CategoryRecord & { product_count: number })[];
-}
-
-export async function createCategory(name: string, description: string | null, icon: string): Promise<CategoryRecord> {
-  await ensureCategoriesTable();
-  const rows = await sql`
-    INSERT INTO categories (name, description, icon)
-    VALUES (${name}, ${description}, ${icon})
-    RETURNING *
-  `;
-  return rows[0] as CategoryRecord;
-}
-
-export async function updateCategory(id: number, name: string, description: string | null, icon: string): Promise<CategoryRecord | null> {
-  await ensureCategoriesTable();
-  const old = await sql`SELECT name FROM categories WHERE id = ${id}`;
-  const oldName = old[0]?.name as string;
-  const rows = await sql`
-    UPDATE categories SET name = ${name}, description = ${description}, icon = ${icon}, updated_at = NOW()
-    WHERE id = ${id}
-    RETURNING *
-  `;
-  if (oldName && oldName !== name) {
-    await sql`UPDATE products SET category = ${name} WHERE category = ${oldName}`;
-  }
-  return (rows[0] as CategoryRecord) ?? null;
-}
-
-export async function deleteCategory(id: number, reassignTo?: string): Promise<void> {
-  await ensureCategoriesTable();
-  const old = await sql`SELECT name FROM categories WHERE id = ${id}`;
-  const oldName = old[0]?.name as string;
-  if (oldName && reassignTo) {
-    await sql`UPDATE products SET category = ${reassignTo} WHERE category = ${oldName}`;
-  }
-  await sql`DELETE FROM categories WHERE id = ${id}`;
 }
 
 // ─── Clients ──────────────────────────────────────────────────────────────────
@@ -585,25 +411,25 @@ export async function getClients(filters: {
     rows = await sql`
       SELECT * FROM clients
       WHERE client_type = ${clientType}
-      AND (${search} = '' OR business_name ILIKE ${searchTerm} OR contact_name ILIKE ${searchTerm} OR phone ILIKE ${searchTerm} OR tobacco_license_number ILIKE ${searchTerm} OR sellers_permit_number ILIKE ${searchTerm})
+      AND (${search} = '' OR business_name ILIKE ${searchTerm} OR contact_name ILIKE ${searchTerm} OR phone ILIKE ${searchTerm})
       ORDER BY business_name ASC
       LIMIT ${limit} OFFSET ${offset}
     `;
     countRows = await sql`
       SELECT COUNT(*) as count FROM clients
       WHERE client_type = ${clientType}
-      AND (${search} = '' OR business_name ILIKE ${searchTerm} OR contact_name ILIKE ${searchTerm} OR phone ILIKE ${searchTerm} OR tobacco_license_number ILIKE ${searchTerm} OR sellers_permit_number ILIKE ${searchTerm})
+      AND (${search} = '' OR business_name ILIKE ${searchTerm} OR contact_name ILIKE ${searchTerm} OR phone ILIKE ${searchTerm})
     `;
   } else {
     rows = await sql`
       SELECT * FROM clients
-      WHERE ${search} = '' OR business_name ILIKE ${searchTerm} OR contact_name ILIKE ${searchTerm} OR phone ILIKE ${searchTerm} OR tobacco_license_number ILIKE ${searchTerm} OR sellers_permit_number ILIKE ${searchTerm}
+      WHERE ${search} = '' OR business_name ILIKE ${searchTerm} OR contact_name ILIKE ${searchTerm} OR phone ILIKE ${searchTerm}
       ORDER BY business_name ASC
       LIMIT ${limit} OFFSET ${offset}
     `;
     countRows = await sql`
       SELECT COUNT(*) as count FROM clients
-      WHERE ${search} = '' OR business_name ILIKE ${searchTerm} OR contact_name ILIKE ${searchTerm} OR phone ILIKE ${searchTerm} OR tobacco_license_number ILIKE ${searchTerm} OR sellers_permit_number ILIKE ${searchTerm}
+      WHERE ${search} = '' OR business_name ILIKE ${searchTerm} OR contact_name ILIKE ${searchTerm} OR phone ILIKE ${searchTerm}
     `;
   }
 
@@ -620,8 +446,8 @@ export async function getClientById(id: number): Promise<Client | null> {
 export async function createClient(data: Partial<Client>): Promise<Client> {
   await ensureClientsTable();
   const rows = await sql`
-    INSERT INTO clients (business_name, contact_name, phone, email, address, city, state, zip, tobacco_license_number, sellers_permit_number, client_type, notes)
-    VALUES (${data.business_name ?? ""}, ${data.contact_name ?? null}, ${data.phone ?? null}, ${data.email ?? null}, ${data.address ?? null}, ${data.city ?? null}, ${data.state ?? null}, ${data.zip ?? null}, ${data.tobacco_license_number ?? null}, ${data.sellers_permit_number ?? null}, ${data.client_type ?? "Retailer"}, ${data.notes ?? null})
+    INSERT INTO clients (business_name, contact_name, phone, email, address, city, state, zip, client_type, notes)
+    VALUES (${data.business_name ?? ""}, ${data.contact_name ?? null}, ${data.phone ?? null}, ${data.email ?? null}, ${data.address ?? null}, ${data.city ?? null}, ${data.state ?? null}, ${data.zip ?? null}, ${data.client_type ?? "Retailer"}, ${data.notes ?? null})
     RETURNING *
   `;
   return rows[0] as Client;
@@ -639,8 +465,6 @@ export async function updateClient(id: number, data: Partial<Client>): Promise<C
       city = COALESCE(${data.city ?? null}, city),
       state = COALESCE(${data.state ?? null}, state),
       zip = COALESCE(${data.zip ?? null}, zip),
-      tobacco_license_number = COALESCE(${data.tobacco_license_number ?? null}, tobacco_license_number),
-      sellers_permit_number = COALESCE(${data.sellers_permit_number ?? null}, sellers_permit_number),
       client_type = COALESCE(${data.client_type ?? null}, client_type),
       notes = COALESCE(${data.notes ?? null}, notes),
       updated_at = NOW()
@@ -660,8 +484,6 @@ export async function upsertClientFromOrder(data: {
   contact_name?: string;
   phone?: string;
   email?: string;
-  tobacco_license_number?: string;
-  sellers_permit_number?: string;
   client_type?: string;
 }): Promise<number | null> {
   if (!data.business_name && !data.phone && !data.contact_name) return null;
@@ -684,8 +506,6 @@ export async function upsertClientFromOrder(data: {
         contact_name = COALESCE(${data.contact_name ?? null}, contact_name),
         phone = COALESCE(${data.phone ?? null}, phone),
         email = COALESCE(${data.email ?? null}, email),
-        tobacco_license_number = COALESCE(${data.tobacco_license_number ?? null}, tobacco_license_number),
-        sellers_permit_number = COALESCE(${data.sellers_permit_number ?? null}, sellers_permit_number),
         updated_at = NOW()
       WHERE id = ${id}
     `;
@@ -693,8 +513,8 @@ export async function upsertClientFromOrder(data: {
   }
 
   const rows = await sql`
-    INSERT INTO clients (business_name, contact_name, phone, email, tobacco_license_number, sellers_permit_number, client_type)
-    VALUES (${businessName}, ${data.contact_name ?? null}, ${data.phone ?? null}, ${data.email ?? null}, ${data.tobacco_license_number ?? null}, ${data.sellers_permit_number ?? null}, ${data.client_type ?? "Retailer"})
+    INSERT INTO clients (business_name, contact_name, phone, email, client_type)
+    VALUES (${businessName}, ${data.contact_name ?? null}, ${data.phone ?? null}, ${data.email ?? null}, ${data.client_type ?? "Retailer"})
     RETURNING id
   `;
   return rows[0]?.id as number;
@@ -709,8 +529,6 @@ export async function createOrder(data: {
   notes?: string | null;
   client_id?: number | null;
   business_name?: string;
-  tobacco_license_number?: string;
-  sellers_permit_number?: string;
   items: {
     product_id?: number | null;
     product_name: string;
@@ -731,8 +549,6 @@ export async function createOrder(data: {
       contact_name: data.customer_name,
       phone: data.customer_phone,
       email: data.customer_email,
-      tobacco_license_number: data.tobacco_license_number,
-      sellers_permit_number: data.sellers_permit_number,
     });
   }
 
@@ -916,7 +732,6 @@ export async function deleteOrder(id: number): Promise<void> {
 
 export async function getDashboardStats(): Promise<DashboardStats> {
   await ensureProductsTable();
-  await ensureCategoriesTable();
   await ensureOrdersTable();
   await ensureOrderItemsTable();
 
@@ -925,7 +740,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     unitsRows,
     lowStockRows,
     recentRows,
-    categoryRows,
     newOrdersRows,
     monthlyRows,
     clientCountRows,
@@ -936,13 +750,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     sql`SELECT COALESCE(SUM(quantity), 0) as total FROM products`.catch(() => [{ total: 0 }]),
     sql`SELECT COUNT(*) as count FROM products WHERE quantity <= ${LOW_STOCK_THRESHOLD}`.catch(() => [{ count: 0 }]),
     sql`SELECT * FROM products ORDER BY updated_at DESC LIMIT 5`.catch(() => []),
-    sql`
-      SELECT c.name as category, c.icon, COUNT(p.id)::int as count
-      FROM categories c
-      LEFT JOIN products p ON p.category = c.name
-      GROUP BY c.name, c.icon
-      ORDER BY count DESC
-    `.catch(() => []),
     sql`SELECT COUNT(*) as count FROM orders WHERE status = 'new'`.catch(() => [{ count: 0 }]),
     sql`
       SELECT
@@ -970,8 +777,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     totalUnits: parseInt(String(unitsRows[0]?.total ?? "0"), 10),
     lowStockCount: parseInt(String(lowStockRows[0]?.count ?? "0"), 10),
     recentlyUpdated: recentRows as unknown as Product[],
-    categoryBreakdown: categoryRows as { category: string; icon: string; count: number }[],
-    totalCategories: categoryRows.length,
     newOrdersCount: parseInt(String(newOrdersRows[0]?.count ?? "0"), 10),
     monthlyProfit: parseFloat(String(monthlyRows[0]?.profit ?? "0")),
     monthlyRevenue: parseFloat(String(monthlyRows[0]?.revenue ?? "0")),
@@ -990,7 +795,7 @@ export async function getProfitData(filters: { startDate?: string; endDate?: str
 
   const { startDate, endDate } = filters;
 
-  const [salesRows, inventoryRows, categoryRows, statsRows] = await Promise.all([
+  const [salesRows, inventoryRows, statsRows] = await Promise.all([
     startDate && endDate
       ? sql`
           SELECT
@@ -1019,27 +824,11 @@ export async function getProfitData(filters: { startDate?: string; endDate?: str
           ORDER BY profit DESC
         `.catch(() => []),
     sql`
-      SELECT id, product_name, category, sku, quantity, price, cost,
+      SELECT id, product_name, sku, quantity, price, cost,
         (price * quantity) as stock_value,
         ((price - cost) * quantity) as potential_profit,
         CASE WHEN price > 0 THEN ROUND(((price - cost) / price) * 100, 2) ELSE 0 END as margin_pct
       FROM products
-      ORDER BY potential_profit DESC
-    `.catch(() => []),
-    sql`
-      SELECT
-        p.category,
-        c.icon,
-        COUNT(DISTINCT p.id)::int as products,
-        SUM(p.price * p.quantity) as stock_value,
-        SUM((p.price - p.cost) * p.quantity) as potential_profit,
-        CASE WHEN SUM(p.price * p.quantity) > 0
-          THEN ROUND((SUM((p.price - p.cost) * p.quantity) / SUM(p.price * p.quantity)) * 100, 2)
-          ELSE 0
-        END as avg_margin
-      FROM products p
-      LEFT JOIN categories c ON c.name = p.category
-      GROUP BY p.category, c.icon
       ORDER BY potential_profit DESC
     `.catch(() => []),
     startDate && endDate
@@ -1079,7 +868,6 @@ export async function getProfitData(filters: { startDate?: string; endDate?: str
   return {
     sales: salesRows,
     inventory: inventoryRows,
-    categories: categoryRows,
     stats: statsRows[0] ?? { revenue: 0, profit: 0, units_sold: 0, order_count: 0 },
     allTime: allTimeRows[0] ?? { revenue: 0, profit: 0 },
   };
@@ -1102,7 +890,7 @@ export async function getMonthlyReportData() {
       GROUP BY o.id
       ORDER BY o.created_at DESC
     `.catch(() => []),
-    sql`SELECT * FROM products ORDER BY category, product_name`.catch(() => []),
+    sql`SELECT * FROM products ORDER BY product_name`.catch(() => []),
     sql`
       SELECT status, COUNT(*)::int as count,
         COALESCE(SUM(oi.price * oi.quantity), 0) as total_value
@@ -1141,7 +929,6 @@ export async function ensureSupplierInvoiceItemsTable() {
       id SERIAL PRIMARY KEY,
       invoice_id INTEGER NOT NULL REFERENCES supplier_invoices(id) ON DELETE CASCADE,
       product_name TEXT NOT NULL,
-      category TEXT,
       quantity NUMERIC(10,2) NOT NULL DEFAULT 1,
       unit_cost NUMERIC(10,2) NOT NULL DEFAULT 0
     )
@@ -1161,7 +948,7 @@ export async function createSupplierInvoice(data: {
   notes?: string | null;
   import_source?: string;
   file_url?: string | null;
-  items: { product_name: string; category?: string | null; quantity: number; unit_cost: number }[];
+  items: { product_name: string; quantity: number; unit_cost: number }[];
 }) {
   await ensureSupplierInvoicesTable();
   await ensureSupplierInvoiceItemsTable();
@@ -1174,8 +961,8 @@ export async function createSupplierInvoice(data: {
   const invoice = rows[0];
   for (const item of data.items) {
     await sql`
-      INSERT INTO supplier_invoice_items (invoice_id, product_name, category, quantity, unit_cost)
-      VALUES (${invoice.id as number}, ${item.product_name}, ${item.category ?? null}, ${item.quantity}, ${item.unit_cost})
+      INSERT INTO supplier_invoice_items (invoice_id, product_name, quantity, unit_cost)
+      VALUES (${invoice.id as number}, ${item.product_name}, ${item.quantity}, ${item.unit_cost})
     `;
   }
   return invoice;

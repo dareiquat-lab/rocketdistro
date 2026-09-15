@@ -406,12 +406,11 @@ function SupplierInvoicesTab() {
                         <p className="text-xs" style={{ color: "var(--text-dim)" }}>No items</p>
                       ) : (
                         <table className="table-base text-xs">
-                          <thead><tr><th>Product</th><th>Category</th><th>Qty</th><th>Unit Cost</th><th>Total</th></tr></thead>
+                          <thead><tr><th>Product</th><th>Qty</th><th>Unit Cost</th><th>Total</th></tr></thead>
                           <tbody>
                             {(itemsCache[inv.id] ?? []).map(item => (
                               <tr key={item?.id}>
                                 <td style={{ color: "var(--text)" }}>{item?.product_name}</td>
-                                <td style={{ color: "var(--text-muted)" }}>{item?.category || "—"}</td>
                                 <td className="font-mono">{item?.quantity}</td>
                                 <td className="font-mono">${Number(item?.unit_cost).toFixed(2)}</td>
                                 <td className="font-mono">${(Number(item?.quantity) * Number(item?.unit_cost)).toFixed(2)}</td>

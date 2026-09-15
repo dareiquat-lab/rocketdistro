@@ -97,7 +97,6 @@ export function ScanClient() {
             )}
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-lg" style={{ color: "var(--text)" }}>{product.product_name}</h3>
-              <p className="text-sm" style={{ color: "var(--text-muted)" }}>{product.category}</p>
               <p className="font-mono text-xs mt-1" style={{ color: "var(--text-dim)" }}>{product.sku}</p>
               <p className="text-xl font-bold mt-2" style={{ color: "var(--accent)" }}>${Number(product.price).toFixed(2)}</p>
             </div>

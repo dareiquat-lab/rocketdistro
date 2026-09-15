@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { ClientPicker } from "@/components/admin/ClientPicker";
 import { EmailInvoiceModal } from "@/components/admin/EmailInvoiceModal";
-import type { Order, OrderItem, Client, Product, CategoryRecord } from "@/types";
+import type { Order, OrderItem, Client, Product } from "@/types";
 import { ORDER_STATUSES, CLIENT_TYPES } from "@/types";
 
 const STATUS_BADGE: Record<string, "info" | "purple" | "warning" | "success" | "danger"> = {
@@ -28,8 +28,6 @@ interface OrderFormData {
   customer_phone: string;
   customer_email: string;
   business_name: string;
-  tobacco_license_number: string;
-  sellers_permit_number: string;
   client_type: string;
   notes: string;
   items: OrderFormItem[];
@@ -37,8 +35,7 @@ interface OrderFormData {
 
 const emptyForm = (): OrderFormData => ({
   customer_name: "", customer_phone: "", customer_email: "",
-  business_name: "", tobacco_license_number: "", sellers_permit_number: "",
-  client_type: "Retailer", notes: "", items: [],
+  business_name: "", client_type: "Retailer", notes: "", items: [],
 });
 
 export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
@@ -148,8 +145,6 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
       customer_phone: order.customer_phone,
       customer_email: order.customer_email,
       business_name: "",
-      tobacco_license_number: "",
-      sellers_permit_number: "",
       client_type: "Retailer",
       notes: order.notes ?? "",
       items: (order.items ?? []).map(i => ({
@@ -171,8 +166,6 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
       customer_phone: client.phone ?? "",
       customer_email: client.email ?? "",
       business_name: client.business_name,
-      tobacco_license_number: client.tobacco_license_number ?? "",
-      sellers_permit_number: client.sellers_permit_number ?? "",
       client_type: client.client_type,
     }));
   };
@@ -365,8 +358,6 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
             <div><label className="label">Phone *</label><input className="input-field" value={form.customer_phone} onChange={e => setForm(f => ({ ...f, customer_phone: e.target.value }))} /></div>
             <div><label className="label">Email *</label><input className="input-field" value={form.customer_email} onChange={e => setForm(f => ({ ...f, customer_email: e.target.value }))} /></div>
             <div><label className="label">Business Name</label><input className="input-field" value={form.business_name} onChange={e => setForm(f => ({ ...f, business_name: e.target.value }))} /></div>
-            <div><label className="label">Tobacco License #</label><input className="input-field" value={form.tobacco_license_number} onChange={e => setForm(f => ({ ...f, tobacco_license_number: e.target.value }))} /></div>
-            <div><label className="label">Seller's Permit #</label><input className="input-field" value={form.sellers_permit_number} onChange={e => setForm(f => ({ ...f, sellers_permit_number: e.target.value }))} /></div>
           </div>
           <div><label className="label">Notes</label><textarea className="input-field" rows={2} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
 

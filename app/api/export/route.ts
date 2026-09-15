@@ -26,7 +26,6 @@ export async function GET(request: NextRequest) {
     const wsData = products.map((p) => ({
       ID: p.id,
       "Product Name": p.product_name,
-      Category: p.category,
       SKU: p.sku,
       Quantity: p.quantity,
       Price: p.price,

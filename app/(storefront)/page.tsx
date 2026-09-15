@@ -1,21 +1,19 @@
 import Image from "next/image";
 import Link from "next/link";
-import { getStorefrontProducts, getCategoryWithProductCount, getBrandWithProductCount } from "@/lib/db";
+import { getStorefrontProducts, getBrandWithProductCount } from "@/lib/db";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { ArrowRight, Bookmark, Rocket } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [productsData, categories, brands] = await Promise.all([
+  const [productsData, brands] = await Promise.all([
     getStorefrontProducts({ limit: 8 }).catch(() => ({ products: [], total: 0, pages: 1 })),
-    getCategoryWithProductCount().catch(() => []),
     getBrandWithProductCount().catch(() => []),
   ]);
 
   const products = productsData.products;
   const totalProducts = productsData.total;
-  const totalCategories = categories.length;
   const activeBrands = brands.filter((b) => b.product_count > 0);
 
   return (
@@ -147,32 +145,6 @@ export default async function HomePage() {
           )}
         </div>
       </section>
-
-      {/* Shop by Category */}
-      {categories.filter(c => c.product_count > 0).length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 py-12">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Shop by Category</h2>
-            <Link href="/categories" className="text-sm font-medium flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
-              All Categories <ArrowRight size={14} />
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            {categories.filter(c => c.product_count > 0).map(cat => (
-              <Link
-                key={cat.id}
-                href={`/products?category=${encodeURIComponent(cat.name)}`}
-                className="card flex flex-col items-center text-center py-6 hover:shadow-md transition-shadow"
-                style={{ textDecoration: "none" }}
-              >
-                <span className="text-3xl mb-2">{cat.icon}</span>
-                <p className="font-semibold text-sm" style={{ color: "var(--text)" }}>{cat.name}</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-dim)" }}>{cat.product_count} products</p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* CTA */}
       <section className="max-w-7xl mx-auto px-4 py-12">

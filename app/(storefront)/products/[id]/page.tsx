@@ -19,7 +19,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     sku: product.sku,
     price: Number(product.price),
     image_url: product.image_url,
-    category: product.category,
     stock: product.quantity,
   };
 
@@ -41,9 +40,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
         {/* Details */}
         <div>
-          <span className="text-xs px-2 py-1 rounded-md font-medium mb-3 inline-block" style={{ background: "var(--muted)", color: "var(--text-muted)" }}>
-            {product.category}
-          </span>
           <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--text)" }}>{product.product_name}</h1>
           <p className="font-mono text-sm mb-4" style={{ color: "var(--text-dim)" }}>{product.sku}</p>
           <p className="text-3xl font-black mb-4" style={{ color: "var(--accent)" }}>${Number(product.price).toFixed(2)}</p>

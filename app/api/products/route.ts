@@ -9,7 +9,6 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") ?? "";
-    const category = searchParams.get("category") ?? "";
     const page = parseInt(searchParams.get("page") ?? "1");
     const limit = parseInt(searchParams.get("limit") ?? "24");
     const admin = searchParams.get("admin") === "true";
@@ -25,12 +24,12 @@ export async function GET(request: NextRequest) {
       const sortBy = searchParams.get("sortBy") ?? "created_at";
       const sortDir = (searchParams.get("sortDir") ?? "asc") as "asc" | "desc";
       const lowStock = searchParams.get("lowStock") === "true";
-      const result = await getProducts({ search, category, brand, sortBy, sortDir, page, limit, lowStock });
+      const result = await getProducts({ search, brand, sortBy, sortDir, page, limit, lowStock });
       return NextResponse.json(result);
     }
 
     const brand = searchParams.get("brand") ?? "";
-    const result = await getStorefrontProducts({ search, category, brand, page, limit });
+    const result = await getStorefrontProducts({ search, brand, page, limit });
     return NextResponse.json(result);
   } catch (e) {
     console.error(e);

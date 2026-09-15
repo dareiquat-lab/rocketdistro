@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminPage() {
   const stats = await getDashboardStats().catch(() => ({
     totalProducts: 0, totalUnits: 0, lowStockCount: 0,
-    recentlyUpdated: [], categoryBreakdown: [], totalCategories: 0,
+    recentlyUpdated: [],
     newOrdersCount: 0, monthlyProfit: 0, monthlyRevenue: 0,
     totalClients: 0, orderStatusBreakdown: [], recentOrders: [],
   }));

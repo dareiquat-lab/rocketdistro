@@ -58,7 +58,6 @@ export function LowStockClient() {
               <thead>
                 <tr>
                   <th>Product</th>
-                  <th>Category</th>
                   <th>SKU</th>
                   <th>Qty</th>
                   <th>Price</th>
@@ -69,7 +68,6 @@ export function LowStockClient() {
                 {products.map(p => (
                   <tr key={p.id} style={{ borderLeft: "3px solid var(--warning)" }}>
                     <td className="font-medium" style={{ color: "var(--text)" }}>{p.product_name}</td>
-                    <td style={{ color: "var(--text-muted)" }}>{p.category}</td>
                     <td className="font-mono text-xs" style={{ color: "var(--text-muted)" }}>{p.sku}</td>
                     <td>
                       <div className="flex items-center gap-1">

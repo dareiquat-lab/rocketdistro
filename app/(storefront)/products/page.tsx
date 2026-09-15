@@ -12,13 +12,11 @@ function ProductsContent() {
   const router = useRouter();
   const { count } = useCart();
   const [products, setProducts] = useState<Parameters<typeof ProductCard>[0]["product"][]>([]);
-  const [categories, setCategories] = useState<{ id: number; name: string; icon: string }[]>([]);
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
 
   const search = searchParams.get("search") ?? "";
-  const category = searchParams.get("category") ?? "";
   const brand = searchParams.get("brand") ?? "";
   const page = parseInt(searchParams.get("page") ?? "1");
 
@@ -32,7 +30,7 @@ function ProductsContent() {
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ search, category, brand, page: String(page), limit: "24" });
+      const params = new URLSearchParams({ search, brand, page: String(page), limit: "24" });
       const res = await fetch(`/api/products?${params}`);
       if (res.ok) {
         const data = await res.json();
@@ -43,15 +41,9 @@ function ProductsContent() {
     } finally {
       setLoading(false);
     }
-  }, [search, category, brand, page]);
+  }, [search, brand, page]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
-
-  useEffect(() => {
-    fetch("/api/admin/categories").then(r => r.ok ? r.json() : []).then(data => {
-      setCategories(Array.isArray(data) ? data : []);
-    }).catch(() => {});
-  }, []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -66,27 +58,6 @@ function ProductsContent() {
           value={search}
           onChange={e => setParam("search", e.target.value)}
         />
-      </div>
-
-      {/* Category filters */}
-      <div className="flex gap-2 flex-wrap mb-6">
-        <button
-          onClick={() => setParam("category", "")}
-          className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-          style={{ background: !category ? "var(--accent)" : "var(--surface)", color: !category ? "white" : "var(--text-muted)", border: "1px solid var(--border)" }}
-        >
-          All
-        </button>
-        {categories.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => setParam("category", cat.name)}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-            style={{ background: category === cat.name ? "var(--accent)" : "var(--surface)", color: category === cat.name ? "white" : "var(--text-muted)", border: "1px solid var(--border)" }}
-          >
-            {cat.icon} {cat.name}
-          </button>
-        ))}
       </div>
 
       <p className="text-xs mb-4" style={{ color: "var(--text-dim)" }}>{total.toLocaleString()} product{total !== 1 ? "s" : ""}</p>

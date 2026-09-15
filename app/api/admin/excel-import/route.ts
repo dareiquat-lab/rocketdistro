@@ -14,7 +14,6 @@ const PRODUCT_CANDIDATES = [
 ];
 const QTY_CANDIDATES = ["quantity", "qty", "units", "count", "pcs", "pieces", "pack", "ordered", "no of units"];
 const COST_CANDIDATES = ["unit cost", "unit price", "cost", "price", "rate", "each", "per unit", "amount", "value"];
-const CATEGORY_CANDIDATES = ["category", "type", "dept", "department", "class", "group"];
 const BRAND_CANDIDATES = ["brand", "brand name", "manufacturer", "make", "mfr", "vendor brand", "label"];
 const SKIP_NAMES = ["total", "subtotal", "grand total", "sub-total", "tax", "shipping", "discount"];
 
@@ -182,7 +181,7 @@ export async function POST(req: NextRequest) {
   const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
 
   // Detect header row (first row with ≥2 non-empty cells matching column keywords)
-  const ALL_KEYWORDS = [...PRODUCT_CANDIDATES, ...QTY_CANDIDATES, ...COST_CANDIDATES, ...CATEGORY_CANDIDATES, ...BRAND_CANDIDATES];
+  const ALL_KEYWORDS = [...PRODUCT_CANDIDATES, ...QTY_CANDIDATES, ...COST_CANDIDATES, ...BRAND_CANDIDATES];
   let headerRowIdx = -1;
   for (let i = 0; i < Math.min(rows.length, 20); i++) {
     const row = rows[i].map((c) => String(c ?? "").toLowerCase().trim());
@@ -200,7 +199,6 @@ export async function POST(req: NextRequest) {
   const productCol = findColIndex(headers, PRODUCT_CANDIDATES);
   const qtyCol = findColIndex(headers, QTY_CANDIDATES);
   const costCol = findColIndex(headers, COST_CANDIDATES);
-  const categoryCol = findColIndex(headers, CATEGORY_CANDIDATES);
   const brandCol = findColIndex(headers, BRAND_CANDIDATES);
 
   if (productCol === -1)
@@ -244,14 +242,13 @@ export async function POST(req: NextRequest) {
   }
 
   // Extract items
-  const items: { name: string; brand: string | null; category: string; quantity: number; unit_cost: number }[] = [];
+  const items: { name: string; brand: string | null; quantity: number; unit_cost: number }[] = [];
   for (let i = 0; i < dataRows.length; i++) {
     const row = dataRows[i] as unknown[];
     const name = rawNames[i];
     if (!name || SKIP_NAMES.some((s) => name.toLowerCase().includes(s))) continue;
     const qty = qtyCol !== -1 ? parseNumber(row[qtyCol]) : 1;
     const cost = costCol !== -1 ? parseNumber(row[costCol]) : 0;
-    const category = categoryCol !== -1 ? String(row[categoryCol] ?? "").trim() : "";
     let brand: string | null = null;
     if (brandCol !== -1) {
       brand = String(row[brandCol] ?? "").trim() || null;
@@ -260,7 +257,7 @@ export async function POST(req: NextRequest) {
     } else {
       brand = inferredBrands?.[i] ?? null;
     }
-    items.push({ name, brand, category, quantity: qty || 1, unit_cost: cost });
+    items.push({ name, brand, quantity: qty || 1, unit_cost: cost });
   }
 
   if (items.length === 0)

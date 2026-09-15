@@ -6,11 +6,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ImageUpload } from "./ImageUpload";
-import type { Product, CategoryRecord } from "@/types";
+import type { Product } from "@/types";
 
 const schema = z.object({
   product_name: z.string().min(1, "Product name is required"),
-  category: z.string().min(1, "Category is required"),
   sku: z.string().min(1, "SKU is required"),
   quantity: z.number().int().min(0, "Quantity must be 0 or more"),
   price: z.number().min(0, "Price must be 0 or more"),
@@ -21,29 +20,21 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-const CATEGORY_PREFIXES: Record<string, string> = {
-  general: "GEN", beverages: "BVR", snacks: "SNK", tobacco: "TOB",
-  electronics: "ELC", accessories: "ACC", health: "HLT",
-  cleaning: "CLN", "paper goods": "PPR", candy: "CND",
-};
-
 interface ProductFormWrapperProps {
   product?: Product;
 }
 
 export function ProductFormWrapper({ product }: ProductFormWrapperProps) {
   const router = useRouter();
-  const [categories, setCategories] = useState<CategoryRecord[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(product?.image_url ?? null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [skuManual, setSkuManual] = useState(!!product);
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       product_name: product?.product_name ?? "",
-      category: product?.category ?? "",
       sku: product?.sku ?? "",
       quantity: product?.quantity ?? 0,
       price: product ? Number(product.price) : 0,
@@ -53,36 +44,20 @@ export function ProductFormWrapper({ product }: ProductFormWrapperProps) {
     },
   });
 
-  const selectedCategory = watch("category");
-
   useEffect(() => {
-    fetch("/api/admin/categories")
-      .then(r => r.ok ? r.json() : [])
-      .then(data => {
-        const cats = Array.isArray(data) ? data : [];
-        setCategories(cats);
-        if (!product && cats.length > 0 && !selectedCategory) {
-          setValue("category", cats[0].name);
-        }
-      });
-  }, []);
-
-  useEffect(() => {
-    if (skuManual || !selectedCategory) return;
+    if (skuManual) return;
     const generateSku = async () => {
-      const res = await fetch(`/api/products?admin=true&category=${encodeURIComponent(selectedCategory)}&limit=100`);
+      const res = await fetch(`/api/products?admin=true&limit=100`);
       if (!res.ok) return;
       const data = await res.json();
       const existingSkus: string[] = (data.products ?? []).map((p: Product) => p.sku);
-      const key = selectedCategory.toLowerCase();
-      const prefix = CATEGORY_PREFIXES[key] ?? selectedCategory.slice(0, 3).toUpperCase();
-      const matching = existingSkus.filter((s: string) => s.startsWith(prefix + "-"));
+      const matching = existingSkus.filter((s: string) => s.startsWith("PRD-"));
       let next = matching.length + 1;
-      while (existingSkus.includes(`${prefix}-${String(next).padStart(3, "0")}`)) next++;
-      setValue("sku", `${prefix}-${String(next).padStart(3, "0")}`);
+      while (existingSkus.includes(`PRD-${String(next).padStart(3, "0")}`)) next++;
+      setValue("sku", `PRD-${String(next).padStart(3, "0")}`);
     };
     generateSku();
-  }, [selectedCategory, skuManual, setValue]);
+  }, [skuManual, setValue]);
 
   const onSubmit = async (data: FormData) => {
     setSaving(true);
@@ -115,14 +90,7 @@ export function ProductFormWrapper({ product }: ProductFormWrapperProps) {
           <input className="input-field" {...register("product_name")} />
           {errors.product_name && <p className="text-xs mt-1" style={{ color: "var(--danger)" }}>{errors.product_name.message}</p>}
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="label">Category *</label>
-            <select className="input-field" {...register("category")}>
-              {categories.map(c => <option key={c.id} value={c.name}>{c.icon} {c.name}</option>)}
-            </select>
-            {errors.category && <p className="text-xs mt-1" style={{ color: "var(--danger)" }}>{errors.category.message}</p>}
-          </div>
+        <div>
           <div>
             <label className="label">SKU *</label>
             <div className="flex gap-2">
@@ -143,6 +111,7 @@ export function ProductFormWrapper({ product }: ProductFormWrapperProps) {
             {errors.sku && <p className="text-xs mt-1" style={{ color: "var(--danger)" }}>{errors.sku.message}</p>}
           </div>
         </div>
+
         <div className="grid grid-cols-3 gap-4">
           <div>
             <label className="label">Quantity *</label>

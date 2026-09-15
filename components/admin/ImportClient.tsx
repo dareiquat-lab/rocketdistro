@@ -19,7 +19,7 @@ interface ParsedInvoiceData {
   invoice_date: string;
   total: number;
   source: "excel" | "ai";
-  items: { name: string; brand?: string | null; category: string; quantity: number; unit_cost: number }[];
+  items: { name: string; brand?: string | null; quantity: number; unit_cost: number }[];
 }
 
 interface ParsedClient {
@@ -110,7 +110,7 @@ export function ImportClient() {
         const res = await fetch("/api/ai-parse", { method: "POST", body: formData });
         if (res.ok) {
           const data = await res.json();
-          const allItems = (data.results ?? []).flatMap((r: { supplier?: string; items?: { name: string; brand?: string | null; category: string; quantity: number; unit_cost: number }[] }) => r.items ?? []);
+          const allItems = (data.results ?? []).flatMap((r: { supplier?: string; items?: { name: string; brand?: string | null; quantity: number; unit_cost: number }[] }) => r.items ?? []);
           const supplierName = (data.results ?? []).find((r: { supplier?: string }) => r.supplier)?.supplier ?? "";
           const total = allItems.reduce((s: number, i: { quantity: number; unit_cost: number }) => s + i.quantity * i.unit_cost, 0);
           setInvoiceData({ supplier_name: supplierName, invoice_number: "", invoice_date: "", items: allItems, total, source: "ai" });
@@ -206,21 +206,13 @@ export function ImportClient() {
           file_url: fileUrl,
           items: invoiceData.items.map(i => ({
             product_name: i.name,
-            category: i.category || null,
             quantity: Math.max(1, Math.round(Number(i.quantity) || 1)),
             unit_cost: Number(i.unit_cost) || 0,
           })),
         }),
       });
 
-      // 3. Fetch existing categories once
-      const catRes = await fetch("/api/admin/categories");
-      const existingCats: Set<string> = new Set(
-        (catRes.ok ? await catRes.json() : [])
-          .map((c: { name: string }) => c.name.toLowerCase())
-      );
-
-      // 4. Import each item — collect failures but don't stop
+      // 3. Import each item — collect failures but don't stop
       const failures: string[] = [];
       for (const item of invoiceData.items) {
         try {
@@ -266,25 +258,11 @@ export function ImportClient() {
           }
 
           if (!productId) {
-            // AI-supplied category takes priority; fall back to brand or General
-            const effectiveCategory = item.category || brandName || "General";
-
-            // Create category if it doesn't exist yet
-            if (!existingCats.has(effectiveCategory.toLowerCase())) {
-              await fetch("/api/admin/categories", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: effectiveCategory, icon: "🏷️" }),
-              });
-              existingCats.add(effectiveCategory.toLowerCase());
-            }
-
             const createRes = await fetch("/api/products", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 product_name: item.name,
-                category: effectiveCategory,
                 sku: `IMP-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
                 quantity: qty,
                 price: 0,
@@ -504,13 +482,12 @@ export function ImportClient() {
           </div>
           <div className="table-container">
             <table className="table-base">
-              <thead><tr><th>Product</th><th>Brand</th><th>Category</th><th>Qty</th><th>Unit Cost</th><th>Total</th></tr></thead>
+              <thead><tr><th>Product</th><th>Brand</th><th>Qty</th><th>Unit Cost</th><th>Total</th></tr></thead>
               <tbody>
                 {invoiceData.items.map((item, i) => (
                   <tr key={i}>
                     <td style={{ color: "var(--text)" }}>{item.name}</td>
                     <td style={{ color: "var(--text-muted)" }}>{item.brand || "—"}</td>
-                    <td style={{ color: "var(--text-muted)" }}>{item.category || "—"}</td>
                     <td className="font-mono">{item.quantity}</td>
                     <td className="font-mono">${item.unit_cost.toFixed(2)}</td>
                     <td className="font-mono">${(item.quantity * item.unit_cost).toFixed(2)}</td>

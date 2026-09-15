@@ -9,7 +9,6 @@ interface ProductCardProps {
   product: {
     id: number;
     product_name: string;
-    category: string;
     sku: string;
     price: number;
     quantity: number;
@@ -26,7 +25,6 @@ export function ProductCard({ product }: ProductCardProps) {
     sku: product.sku,
     price: Number(product.price),
     image_url: product.image_url,
-    category: product.category,
     stock: product.quantity,
   };
 
@@ -55,16 +53,11 @@ export function ProductCard({ product }: ProductCardProps) {
           )}
         </div>
         <div className="p-3">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs px-2 py-0.5 rounded-md font-medium" style={{ background: "var(--muted)", color: "var(--text-muted)" }}>
-              {product.category}
-            </span>
-          </div>
           <h3 className="text-sm font-semibold line-clamp-2 mb-1" style={{ color: "var(--text)" }}>
             {product.product_name}
           </h3>
-          {(product.brand || product.category) && (
-            <p className="text-xs mb-2" style={{ color: "var(--text-dim)" }}>{product.brand ?? product.category}</p>
+          {product.brand && (
+            <p className="text-xs mb-2" style={{ color: "var(--text-dim)" }}>{product.brand}</p>
           )}
           <p className="text-lg font-bold" style={{ color: "var(--accent)" }}>${Number(product.price).toFixed(2)}</p>
         </div>

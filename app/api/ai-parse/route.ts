@@ -49,7 +49,6 @@ const INVOICE_PROMPT = `You are parsing an invoice image or PDF for a product su
     {
       "name": "clean product name",
       "brand": "the brand/manufacturer name extracted from the product name or invoice context, or null if not determinable",
-      "category": "best guess at category",
       "quantity": number,
       "unit_cost": number
     }
