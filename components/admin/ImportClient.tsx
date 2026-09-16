@@ -54,6 +54,31 @@ function isExcelFile(f: File) {
   return /\.(xlsx|xls)$/i.test(f.name) || f.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || f.type === "application/vnd.ms-excel";
 }
 
+function stripPromo(name: string): string {
+  return name
+    .replace(/\bpromo\b/gi, "")
+    .replace(/[\s\-–—]+/g, " ")
+    .trim();
+}
+
+function mergePromoItems<T extends { name: string; quantity: number; unit_cost: number }>(items: T[]): T[] {
+  const merged = new Map<string, T>();
+  for (const item of items) {
+    const key = stripPromo(item.name).toLowerCase();
+    if (merged.has(key)) {
+      const existing = merged.get(key)!;
+      merged.set(key, {
+        ...existing,
+        quantity: existing.quantity + item.quantity,
+        unit_cost: existing.unit_cost || item.unit_cost,
+      });
+    } else {
+      merged.set(key, { ...item, name: stripPromo(item.name) });
+    }
+  }
+  return Array.from(merged.values());
+}
+
 export function ImportClient() {
   const [mode, setMode] = useState<Mode>("order");
   const [files, setFiles] = useState<File[]>([]);
@@ -97,7 +122,7 @@ export function ImportClient() {
         const res = await fetch("/api/admin/excel-import", { method: "POST", body: formData });
         if (res.ok) {
           const data = await res.json();
-          setInvoiceData({ ...data, source: "excel" });
+          setInvoiceData({ ...data, items: mergePromoItems(data.items ?? []), source: "excel" });
         } else {
           const err = await res.json();
           setError(err.error ?? "Could not read Excel file");
@@ -110,7 +135,8 @@ export function ImportClient() {
         const res = await fetch("/api/ai-parse", { method: "POST", body: formData });
         if (res.ok) {
           const data = await res.json();
-          const allItems = (data.results ?? []).flatMap((r: { supplier?: string; items?: { name: string; brand?: string | null; quantity: number; unit_cost: number }[] }) => r.items ?? []);
+          const rawItems = (data.results ?? []).flatMap((r: { supplier?: string; items?: { name: string; brand?: string | null; quantity: number; unit_cost: number }[] }) => r.items ?? []);
+          const allItems = mergePromoItems(rawItems);
           const supplierName = (data.results ?? []).find((r: { supplier?: string }) => r.supplier)?.supplier ?? "";
           const total = allItems.reduce((s: number, i: { quantity: number; unit_cost: number }) => s + i.quantity * i.unit_cost, 0);
           setInvoiceData({ supplier_name: supplierName, invoice_number: "", invoice_date: "", items: allItems, total, source: "ai" });
