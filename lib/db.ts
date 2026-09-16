@@ -697,6 +697,11 @@ export async function updateOrder(id: number, data: {
 }): Promise<Order | null> {
   await ensureOrdersTable();
   await ensureOrderItemsTable();
+
+  // Capture current status before update to detect completion transition
+  const beforeRows = await sql`SELECT status FROM orders WHERE id = ${id}`;
+  const prevStatus = beforeRows[0]?.status as string | undefined;
+
   await sql`
     UPDATE orders SET
       customer_name = COALESCE(${data.customer_name ?? null}, customer_name),
@@ -708,6 +713,7 @@ export async function updateOrder(id: number, data: {
       updated_at = NOW()
     WHERE id = ${id}
   `;
+
   if (data.items) {
     await sql`DELETE FROM order_items WHERE order_id = ${id}`;
     for (const item of data.items) {
@@ -722,6 +728,22 @@ export async function updateOrder(id: number, data: {
       `;
     }
   }
+
+  // Deduct inventory when an order is marked completed for the first time
+  if (data.status === "completed" && prevStatus !== "completed") {
+    const order = await getOrderById(id);
+    for (const item of order?.items ?? []) {
+      if (item.product_id) {
+        await sql`
+          UPDATE products
+          SET quantity = GREATEST(0, quantity - ${item.quantity}),
+              updated_at = NOW()
+          WHERE id = ${item.product_id}
+        `;
+      }
+    }
+  }
+
   return getOrderById(id);
 }
 

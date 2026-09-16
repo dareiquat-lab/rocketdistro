@@ -30,6 +30,8 @@ export function InventoryClient() {
   const [bulkBrandName, setBulkBrandName] = useState("");
   const [brands, setBrands] = useState<Brand[]>([]);
   const [deleting, setDeleting] = useState(false);
+  const [editQtyId, setEditQtyId] = useState<number | null>(null);
+  const [editQtyValue, setEditQtyValue] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
@@ -72,17 +74,20 @@ export function InventoryClient() {
     return sortDir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />;
   };
 
-  const adjustQty = async (id: number, delta: number, current: number) => {
-    const newQty = Math.max(0, current + delta);
+  const saveQty = async (id: number, newQty: number) => {
+    const qty = Math.max(0, newQty);
     const res = await fetch(`/api/products/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ quantity: newQty }),
+      body: JSON.stringify({ quantity: qty }),
     });
     if (res.ok) {
-      setProducts(prev => prev.map(p => p.id === id ? { ...p, quantity: newQty } : p));
+      setProducts(prev => prev.map(p => p.id === id ? { ...p, quantity: qty } : p));
     }
   };
+
+  const adjustQty = (id: number, delta: number, current: number) =>
+    saveQty(id, current + delta);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -259,12 +264,26 @@ export function InventoryClient() {
                       className="w-6 h-6 rounded flex items-center justify-center text-lg font-bold hover:opacity-70"
                       style={{ background: "var(--muted)", color: "var(--text)" }}
                     >−</button>
-                    <span
-                      className="w-8 text-center text-sm font-mono font-semibold"
-                      style={{ color: p.quantity <= LOW_STOCK_THRESHOLD ? "var(--warning)" : "var(--text)" }}
-                    >
-                      {p.quantity}
-                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="w-12 text-center text-sm font-mono font-semibold rounded border-0 outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                      style={{
+                        color: p.quantity <= LOW_STOCK_THRESHOLD ? "var(--warning)" : "var(--text)",
+                        background: editQtyId === p.id ? "var(--muted)" : "transparent",
+                      }}
+                      value={editQtyId === p.id ? editQtyValue : String(p.quantity)}
+                      onFocus={() => { setEditQtyId(p.id); setEditQtyValue(String(p.quantity)); }}
+                      onChange={e => setEditQtyValue(e.target.value.replace(/[^0-9]/g, ""))}
+                      onBlur={() => {
+                        if (editQtyId === p.id) {
+                          const v = parseInt(editQtyValue);
+                          if (!isNaN(v)) saveQty(p.id, v);
+                          setEditQtyId(null);
+                        }
+                      }}
+                      onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                    />
                     <button
                       onClick={() => adjustQty(p.id, 1, p.quantity)}
                       className="w-6 h-6 rounded flex items-center justify-center text-lg font-bold hover:opacity-70"
