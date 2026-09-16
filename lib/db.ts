@@ -29,6 +29,8 @@ export async function ensureProductsTable() {
   await sql`CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_products_quantity ON products(quantity)`;
+  // Drop legacy category column if it still exists from before category removal
+  await sql`ALTER TABLE products DROP COLUMN IF EXISTS category`;
 }
 
 export async function ensureProductCostColumn() {
