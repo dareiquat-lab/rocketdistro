@@ -48,7 +48,6 @@ export default async function HomePage() {
               {[
                 { value: totalProducts.toLocaleString(), label: "Products" },
                 { value: activeBrands.length.toString(), label: "Brands" },
-                { value: "0%", label: "Tax Online" },
               ].map(s => (
                 <div key={s.label}>
                   <p className="text-2xl font-black" style={{ color: "var(--text)" }}>{s.value}</p>
