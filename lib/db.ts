@@ -742,7 +742,7 @@ export async function updateOrder(id: number, data: {
     }
   }
 
-  // Deduct inventory when an order is marked completed for the first time
+  // Deduct inventory when an order transitions into completed
   if (data.status === "completed" && prevStatus !== "completed") {
     const order = await getOrderById(id);
     for (const item of order?.items ?? []) {
@@ -757,12 +757,26 @@ export async function updateOrder(id: number, data: {
     }
   }
 
+  // Restore inventory when a completed order is cancelled
+  if (data.status === "cancelled" && prevStatus === "completed") {
+    const order = await getOrderById(id);
+    for (const item of order?.items ?? []) {
+      if (item.product_id) {
+        await sql`
+          UPDATE products
+          SET quantity = quantity + ${item.quantity},
+              updated_at = NOW()
+          WHERE id = ${item.product_id}
+        `;
+      }
+    }
+  }
+
   return getOrderById(id);
 }
 
 export async function updateOrderStatus(id: number, status: string): Promise<void> {
-  await ensureOrdersTable();
-  await sql`UPDATE orders SET status = ${status}, updated_at = NOW() WHERE id = ${id}`;
+  await updateOrder(id, { status });
 }
 
 export async function deleteOrder(id: number): Promise<void> {

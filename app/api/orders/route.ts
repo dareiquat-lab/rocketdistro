@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    if (!body.customer_name || !body.customer_phone) {
-      return NextResponse.json({ error: "Name and phone are required" }, { status: 400 });
+    if (!body.customer_name) {
+      return NextResponse.json({ error: "Customer name is required" }, { status: 400 });
     }
     if (!body.items || body.items.length === 0) {
       return NextResponse.json({ error: "Order must have at least one item" }, { status: 400 });

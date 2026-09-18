@@ -177,10 +177,12 @@ export function ImportClient() {
 
   const handleCommitOrders = async (orders: ParsedOrder[]) => {
     setCommitting(true);
+    setError("");
+    const failures: string[] = [];
     try {
       for (const order of orders) {
         const name = [order.client.first_name, order.client.last_name].filter(Boolean).join(" ") || "Unknown Customer";
-        await fetch("/api/orders", {
+        const res = await fetch("/api/orders", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -198,8 +200,17 @@ export function ImportClient() {
             })),
           }),
         });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          failures.push(`${name}: ${err.error ?? res.status}`);
+        }
       }
-      setCommitted(true);
+      if (failures.length === orders.length) {
+        setError(`All orders failed. First: ${failures[0]}`);
+      } else {
+        if (failures.length > 0) setError(`${orders.length - failures.length} of ${orders.length} orders created. Failed: ${failures.join(", ")}`);
+        setCommitted(true);
+      }
     } finally {
       setCommitting(false);
     }
