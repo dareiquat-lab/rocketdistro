@@ -641,9 +641,22 @@ export async function getOrderById(id: number): Promise<Order | null> {
   await ensureOrderItemsTable();
   const rows = await sql`
     SELECT o.*,
-      COALESCE(json_agg(oi.*) FILTER (WHERE oi.id IS NOT NULL), '[]') as items
+      COALESCE(json_agg(
+        json_build_object(
+          'id', oi.id,
+          'order_id', oi.order_id,
+          'product_id', oi.product_id,
+          'product_name', oi.product_name,
+          'product_sku', oi.product_sku,
+          'product_brand', p.brand,
+          'quantity', oi.quantity,
+          'price', oi.price,
+          'cost', oi.cost
+        )
+      ) FILTER (WHERE oi.id IS NOT NULL), '[]') as items
     FROM orders o
     LEFT JOIN order_items oi ON oi.order_id = o.id
+    LEFT JOIN products p ON p.id = oi.product_id
     WHERE o.id = ${id}
     GROUP BY o.id
   `;

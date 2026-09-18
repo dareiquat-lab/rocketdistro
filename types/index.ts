@@ -31,6 +31,7 @@ export interface OrderItem {
   product_id: number | null;
   product_name: string;
   product_sku: string | null;
+  product_brand: string | null;
   quantity: number;
   price: number;
   cost: number;

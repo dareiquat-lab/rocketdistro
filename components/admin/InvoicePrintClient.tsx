@@ -66,7 +66,7 @@ export function InvoicePrintClient({ order }: InvoicePrintClientProps) {
         <thead>
           <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
             <th className="text-left py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Product</th>
-            <th className="text-left py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">SKU</th>
+            <th className="text-left py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Brand</th>
             <th className="text-center py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Qty</th>
             <th className="text-right py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Unit Price</th>
             <th className="text-right py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Total</th>
@@ -76,7 +76,7 @@ export function InvoicePrintClient({ order }: InvoicePrintClientProps) {
           {items.map(item => (
             <tr key={item.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
               <td className="py-2.5 text-sm">{item.product_name}</td>
-              <td className="py-2.5 text-xs font-mono text-slate-500">{item.product_sku ?? "—"}</td>
+              <td className="py-2.5 text-xs text-slate-500">{item.product_brand ?? "—"}</td>
               <td className="py-2.5 text-sm text-center">{item.quantity}</td>
               <td className="py-2.5 text-sm text-right font-mono">${Number(item.price).toFixed(2)}</td>
               <td className="py-2.5 text-sm text-right font-mono font-medium">${(Number(item.price) * item.quantity).toFixed(2)}</td>

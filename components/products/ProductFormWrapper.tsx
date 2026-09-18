@@ -53,17 +53,10 @@ export function ProductFormWrapper({ product }: ProductFormWrapperProps) {
 
   useEffect(() => {
     if (skuManual) return;
-    const generateSku = async () => {
-      const res = await fetch(`/api/products?admin=true&limit=100`);
-      if (!res.ok) return;
-      const data = await res.json();
-      const existingSkus: string[] = (data.products ?? []).map((p: Product) => p.sku);
-      const matching = existingSkus.filter((s: string) => s.startsWith("PRD-"));
-      let next = matching.length + 1;
-      while (existingSkus.includes(`PRD-${String(next).padStart(3, "0")}`)) next++;
-      setValue("sku", `PRD-${String(next).padStart(3, "0")}`);
-    };
-    generateSku();
+    fetch("/api/admin/products/next-sku")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.sku) setValue("sku", data.sku); })
+      .catch(() => {});
   }, [skuManual, setValue]);
 
   const onSubmit = async (data: FormData) => {
