@@ -408,6 +408,7 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
                         type="number"
                         min="1"
                         value={item.quantity}
+                        onFocus={e => e.target.select()}
                         onChange={e => updateItem(i, "quantity", parseInt(e.target.value) || 1)}
                         style={{ background: "var(--background)" }}
                       />
@@ -420,6 +421,7 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
                         step="0.01"
                         min="0"
                         value={item.price}
+                        onFocus={e => e.target.select()}
                         onChange={e => updateItem(i, "price", parseFloat(e.target.value) || 0)}
                         style={{ background: "var(--background)" }}
                       />
@@ -432,6 +434,7 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
                         step="0.01"
                         min="0"
                         value={item.cost}
+                        onFocus={e => e.target.select()}
                         onChange={e => updateItem(i, "cost", parseFloat(e.target.value) || 0)}
                         style={{ background: "var(--background)" }}
                       />
