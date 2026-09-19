@@ -711,9 +711,15 @@ export async function updateOrder(id: number, data: {
   await ensureOrdersTable();
   await ensureOrderItemsTable();
 
-  // Capture current status before update to detect completion transition
   const beforeRows = await sql`SELECT status FROM orders WHERE id = ${id}`;
   const prevStatus = beforeRows[0]?.status as string | undefined;
+
+  // Snapshot old items before any modifications so we can rebalance inventory correctly
+  let oldItemsSnapshot: OrderItem[] = [];
+  if (data.items && prevStatus === "completed") {
+    const snap = await getOrderById(id);
+    oldItemsSnapshot = snap?.items ?? [];
+  }
 
   await sql`
     UPDATE orders SET
@@ -742,8 +748,10 @@ export async function updateOrder(id: number, data: {
     }
   }
 
-  // Deduct inventory when an order transitions into completed
-  if (data.status === "completed" && prevStatus !== "completed") {
+  const newStatus = data.status ?? prevStatus;
+
+  // Completing a previously non-completed order → deduct new items from inventory
+  if (newStatus === "completed" && prevStatus !== "completed") {
     const order = await getOrderById(id);
     for (const item of order?.items ?? []) {
       if (item.product_id) {
@@ -756,15 +764,38 @@ export async function updateOrder(id: number, data: {
       }
     }
   }
-
-  // Restore inventory when a completed order is cancelled
-  if (data.status === "cancelled" && prevStatus === "completed") {
-    const order = await getOrderById(id);
-    for (const item of order?.items ?? []) {
+  // Cancelling a completed order → restore the old items' inventory
+  else if (newStatus === "cancelled" && prevStatus === "completed") {
+    const itemsToRestore = data.items ? oldItemsSnapshot : (await getOrderById(id))?.items ?? [];
+    for (const item of itemsToRestore) {
       if (item.product_id) {
         await sql`
           UPDATE products
           SET quantity = quantity + ${item.quantity},
+              updated_at = NOW()
+          WHERE id = ${item.product_id}
+        `;
+      }
+    }
+  }
+  // Already-completed order with items changed → restore old quantities, deduct new quantities
+  else if (data.items && prevStatus === "completed" && newStatus !== "cancelled") {
+    for (const item of oldItemsSnapshot) {
+      if (item.product_id) {
+        await sql`
+          UPDATE products
+          SET quantity = quantity + ${item.quantity},
+              updated_at = NOW()
+          WHERE id = ${item.product_id}
+        `;
+      }
+    }
+    const updatedOrder = await getOrderById(id);
+    for (const item of updatedOrder?.items ?? []) {
+      if (item.product_id) {
+        await sql`
+          UPDATE products
+          SET quantity = GREATEST(0, quantity - ${item.quantity}),
               updated_at = NOW()
           WHERE id = ${item.product_id}
         `;

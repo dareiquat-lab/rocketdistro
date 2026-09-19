@@ -172,7 +172,7 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
   };
 
   const handleSave = async () => {
-    if (!form.customer_name || !form.customer_phone || !form.customer_email || form.items.length === 0) return;
+    if (!form.customer_name || !form.customer_phone || form.items.length === 0) return;
     setSaving(true);
     try {
       const body = { ...form };
@@ -382,13 +382,69 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
               )}
             </div>
             {/* Item list */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               {form.items.map((item, i) => (
-                <div key={i} className="flex gap-2 items-center p-2 rounded-lg" style={{ background: "var(--muted)" }}>
-                  <input className="input-field flex-1 min-w-0" placeholder="Product name" value={item.product_name} onChange={e => updateItem(i, "product_name", e.target.value)} style={{ background: "var(--background)" }} />
-                  <input className="input-field w-16" type="number" min="1" placeholder="Qty" value={item.quantity} onChange={e => updateItem(i, "quantity", parseInt(e.target.value) || 1)} style={{ background: "var(--background)" }} />
-                  <input className="input-field w-24" type="number" step="0.01" placeholder="Price" value={item.price} onChange={e => updateItem(i, "price", parseFloat(e.target.value) || 0)} style={{ background: "var(--background)" }} />
-                  <button type="button" onClick={() => removeItem(i)} style={{ color: "var(--danger)" }} className="p-1 hover:opacity-70">✕</button>
+                <div key={i} className="p-3 rounded-lg" style={{ background: "var(--muted)" }}>
+                  {/* Product name row */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      className="input-field flex-1 font-medium"
+                      placeholder="Product name"
+                      value={item.product_name}
+                      onChange={e => updateItem(i, "product_name", e.target.value)}
+                      style={{ background: "var(--background)" }}
+                    />
+                    <button type="button" onClick={() => removeItem(i)} style={{ color: "var(--danger)" }} className="p-1 hover:opacity-70 flex-shrink-0">✕</button>
+                  </div>
+                  {item.product_sku && (
+                    <p className="text-xs mb-2" style={{ color: "var(--text-dim)" }}>SKU: {item.product_sku}</p>
+                  )}
+                  {/* Qty / Price / Cost row */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-xs block mb-1" style={{ color: "var(--text-dim)" }}>Qty</label>
+                      <input
+                        className="input-field w-full"
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={e => updateItem(i, "quantity", parseInt(e.target.value) || 1)}
+                        style={{ background: "var(--background)" }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs block mb-1" style={{ color: "var(--text-dim)" }}>Price ($)</label>
+                      <input
+                        className="input-field w-full"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={item.price}
+                        onChange={e => updateItem(i, "price", parseFloat(e.target.value) || 0)}
+                        style={{ background: "var(--background)" }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs block mb-1" style={{ color: "var(--text-dim)" }}>Cost ($)</label>
+                      <input
+                        className="input-field w-full"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={item.cost}
+                        onChange={e => updateItem(i, "cost", parseFloat(e.target.value) || 0)}
+                        style={{ background: "var(--background)" }}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-right mt-1" style={{ color: "var(--text-dim)" }}>
+                    Subtotal: ${(Number(item.price) * Number(item.quantity)).toFixed(2)}
+                    {item.cost > 0 && (
+                      <span className="ml-2" style={{ color: "var(--success, #22c55e)" }}>
+                        Profit: ${((Number(item.price) - Number(item.cost)) * Number(item.quantity)).toFixed(2)}
+                      </span>
+                    )}
+                  </p>
                 </div>
               ))}
             </div>
@@ -401,7 +457,7 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
 
           <div className="flex gap-2 justify-end pt-2 border-t" style={{ borderColor: "var(--border)" }}>
             <button className="btn-secondary" onClick={() => setFormOpen(false)}>Cancel</button>
-            <button className="btn-primary" onClick={handleSave} disabled={saving || !form.customer_name || !form.customer_phone || !form.customer_email || form.items.length === 0}>
+            <button className="btn-primary" onClick={handleSave} disabled={saving || !form.customer_name || !form.customer_phone || form.items.length === 0}>
               {saving ? "Saving…" : editingOrder ? "Save Changes" : "Create Order"}
             </button>
           </div>
