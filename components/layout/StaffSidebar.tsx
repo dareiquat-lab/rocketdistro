@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { Rocket, ShoppingCart, Users, Sparkles, LogOut, X, Menu } from "lucide-react";
+import { Rocket, ShoppingCart, Users, Sparkles, LogOut, X, Menu, Package } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,7 @@ export function StaffSidebar({ newOrdersCount = 0 }: StaffSidebarProps) {
 
   const navItems: NavItem[] = [
     { href: "/staff/orders", label: "Orders", icon: <ShoppingCart size={18} />, badge: newOrdersCount },
+    { href: "/staff/products", label: "Products", icon: <Package size={18} /> },
     { href: "/staff/clients", label: "Clients", icon: <Users size={18} /> },
     { href: "/staff/import", label: "AI Import", icon: <Sparkles size={18} /> },
   ];

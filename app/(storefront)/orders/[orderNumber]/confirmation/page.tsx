@@ -37,16 +37,10 @@ export default async function ConfirmationPage({ params }: { params: Promise<{ o
               <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--text-dim)" }}>Order Summary</p>
               {(order.items ?? []).map(item => (
                 <div key={item.id} className="flex justify-between text-sm">
-                  <span style={{ color: "var(--text)" }}>{item.product_name} ×{item.quantity}</span>
-                  <span className="font-mono" style={{ color: "var(--text-muted)" }}>${(Number(item.price) * item.quantity).toFixed(2)}</span>
+                  <span style={{ color: "var(--text)" }}>{item.product_name}</span>
+                  <span className="font-mono" style={{ color: "var(--text-muted)" }}>×{item.quantity}</span>
                 </div>
               ))}
-              <div className="flex justify-between font-semibold pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-                <span style={{ color: "var(--text)" }}>Total</span>
-                <span className="font-mono" style={{ color: "var(--accent)" }}>
-                  ${(order.items ?? []).reduce((s, i) => s + Number(i.price) * i.quantity, 0).toFixed(2)}
-                </span>
-              </div>
             </div>
           )}
         </div>

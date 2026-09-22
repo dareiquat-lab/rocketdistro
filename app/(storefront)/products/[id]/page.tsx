@@ -42,8 +42,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         <div>
           <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--text)" }}>{product.product_name}</h1>
           <p className="font-mono text-sm mb-4" style={{ color: "var(--text-dim)" }}>{product.sku}</p>
-          <p className="text-3xl font-black mb-4" style={{ color: "var(--accent)" }}>${Number(product.price).toFixed(2)}</p>
-
           <div className="flex items-center gap-2 mb-6">
             <span className="text-sm" style={{ color: product.quantity > 0 ? "var(--success)" : "var(--danger)" }}>
               {product.quantity > 0 ? `✓ In Stock (${product.quantity} units)` : "✗ Out of Stock"}

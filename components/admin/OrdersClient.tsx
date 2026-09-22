@@ -58,6 +58,7 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [emailOrder, setEmailOrder] = useState<Order | null>(null);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
@@ -136,11 +137,13 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
   const openCreate = () => {
     setEditingOrder(null);
     setForm(emptyForm());
+    setSaveError("");
     setFormOpen(true);
   };
 
   const openEdit = (order: Order) => {
     setEditingOrder(order);
+    setSaveError("");
     setForm({
       customer_name: order.customer_name,
       customer_phone: order.customer_phone,
@@ -173,7 +176,10 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
 
   const handleSave = async () => {
     if (!form.customer_name || !form.customer_phone || form.items.length === 0) return;
+    const blankItem = form.items.find(i => !i.product_name.trim());
+    if (blankItem) { setSaveError("All items must have a product name."); return; }
     setSaving(true);
+    setSaveError("");
     try {
       const body = { ...form };
       const res = editingOrder
@@ -181,8 +187,14 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
         : await fetch("/api/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (res.ok) {
         setFormOpen(false);
+        setSaveError("");
         fetchOrders();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setSaveError(err.error ?? "Save failed. Please try again.");
       }
+    } catch {
+      setSaveError("Network error. Please check your connection.");
     } finally {
       setSaving(false);
     }
@@ -458,8 +470,14 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
             )}
           </div>
 
+          {saveError && (
+            <p className="text-sm px-3 py-2 rounded-lg" style={{ background: "rgba(220,38,38,0.1)", color: "var(--danger)" }}>
+              {saveError}
+            </p>
+          )}
+
           <div className="flex gap-2 justify-end pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-            <button className="btn-secondary" onClick={() => setFormOpen(false)}>Cancel</button>
+            <button className="btn-secondary" onClick={() => { setFormOpen(false); setSaveError(""); }}>Cancel</button>
             <button className="btn-primary" onClick={handleSave} disabled={saving || !form.customer_name || !form.customer_phone || form.items.length === 0}>
               {saving ? "Saving…" : editingOrder ? "Save Changes" : "Create Order"}
             </button>

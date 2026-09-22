@@ -23,9 +23,10 @@ type FormData = z.infer<typeof schema>;
 
 interface ProductFormWrapperProps {
   product?: Product;
+  backPath?: string;
 }
 
-export function ProductFormWrapper({ product }: ProductFormWrapperProps) {
+export function ProductFormWrapper({ product, backPath = "/admin/inventory" }: ProductFormWrapperProps) {
   const router = useRouter();
   const [imageUrl, setImageUrl] = useState<string | null>(product?.image_url ?? null);
   const [saving, setSaving] = useState(false);
@@ -74,7 +75,7 @@ export function ProductFormWrapper({ product }: ProductFormWrapperProps) {
         ? await fetch(`/api/products/${product.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
         : await fetch("/api/products", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (res.ok) {
-        router.push("/admin/inventory");
+        router.push(backPath);
         router.refresh();
       } else {
         const err = await res.json();

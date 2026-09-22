@@ -11,7 +11,7 @@ import type { Product, Brand } from "@/types";
 
 const LOW_STOCK_THRESHOLD = 10;
 
-export function InventoryClient() {
+export function InventoryClient({ staffMode = false }: { staffMode?: boolean }) {
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
@@ -175,7 +175,7 @@ export function InventoryClient() {
           </div>
         )}
         <div className="flex gap-2">
-          {selected.size > 0 && (
+          {!staffMode && selected.size > 0 && (
             <>
               <button className="btn-secondary" onClick={() => { setBulkBrandName(""); setBulkBrandOpen(true); }}>
                 <Tag size={14} /> Assign Brand ({selected.size})
@@ -185,8 +185,8 @@ export function InventoryClient() {
               </button>
             </>
           )}
-          <a href="/api/export?format=csv" className="btn-secondary">Export</a>
-          <Link href="/admin/products/new" className="btn-primary">
+          {!staffMode && <a href="/api/export?format=csv" className="btn-secondary">Export</a>}
+          <Link href={staffMode ? "/staff/products/new" : "/admin/products/new"} className="btn-primary">
             <Plus size={14} /> Add Product
           </Link>
         </div>
@@ -202,7 +202,7 @@ export function InventoryClient() {
         <table className="table-base">
           <thead>
             <tr>
-              <th className="w-10"><input type="checkbox" checked={allSelected} onChange={toggleAll} /></th>
+              {!staffMode && <th className="w-10"><input type="checkbox" checked={allSelected} onChange={toggleAll} /></th>}
               <th className="w-12">Image</th>
               <th className="cursor-pointer select-none" onClick={() => toggleSort("product_name")}>
                 <span className="flex items-center gap-1">Name <SortIcon col="product_name" /></span>
@@ -239,7 +239,7 @@ export function InventoryClient() {
                   borderLeft: p.quantity <= LOW_STOCK_THRESHOLD ? "3px solid var(--warning)" : undefined,
                 }}
               >
-                <td><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} /></td>
+                {!staffMode && <td><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} /></td>}
                 <td>
                   {p.image_url ? (
                     <div className="relative w-9 h-9 rounded-lg overflow-hidden">
@@ -250,7 +250,7 @@ export function InventoryClient() {
                   )}
                 </td>
                 <td>
-                  <Link href={`/admin/products/${p.id}`} className="font-medium hover:underline" style={{ color: "var(--text)" }}>
+                  <Link href={staffMode ? `/staff/products/${p.id}` : `/admin/products/${p.id}`} className="font-medium hover:underline" style={{ color: "var(--text)" }}>
                     {p.product_name}
                   </Link>
                 </td>
@@ -303,12 +303,14 @@ export function InventoryClient() {
                 <td className="font-mono text-xs" style={{ color: "var(--text-dim)" }}>{p.barcode ?? "—"}</td>
                 <td>
                   <div className="flex items-center gap-1">
-                    <Link href={`/admin/products/${p.id}`} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--accent)" }} title="Edit">
+                    <Link href={staffMode ? `/staff/products/${p.id}` : `/admin/products/${p.id}`} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--accent)" }} title="Edit">
                       <Edit size={14} />
                     </Link>
-                    <button onClick={() => setDeleteId(p.id)} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--danger)" }} title="Delete">
-                      <Trash2 size={14} />
-                    </button>
+                    {!staffMode && (
+                      <button onClick={() => setDeleteId(p.id)} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--danger)" }} title="Delete">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

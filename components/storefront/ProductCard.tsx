@@ -59,7 +59,7 @@ export function ProductCard({ product }: ProductCardProps) {
           {product.brand && (
             <p className="text-xs mb-2" style={{ color: "var(--text-dim)" }}>{product.brand}</p>
           )}
-          <p className="text-lg font-bold" style={{ color: "var(--accent)" }}>${Number(product.price).toFixed(2)}</p>
+          <p className="text-xs font-medium" style={{ color: "var(--text-dim)" }}>Contact for pricing</p>
         </div>
       </Link>
       <div className="px-3 pb-3 mt-auto">

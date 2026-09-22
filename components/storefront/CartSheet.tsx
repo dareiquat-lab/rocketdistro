@@ -12,7 +12,7 @@ interface CartSheetProps {
 }
 
 export function CartSheet({ open, onClose }: CartSheetProps) {
-  const { items, remove, update, total, clear } = useCart();
+  const { items, remove, update, clear } = useCart();
 
   useEffect(() => {
     if (!open) return;
@@ -80,7 +80,6 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>{item.product_name}</p>
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>${item.price.toFixed(2)} each</p>
                 <div className="flex items-center gap-2 mt-1.5">
                   <button onClick={() => update(item.id, item.quantity - 1)} className="w-6 h-6 rounded text-sm font-bold" style={{ background: "var(--muted)", color: "var(--text)" }}>−</button>
                   <span className="text-sm font-mono w-6 text-center" style={{ color: "var(--text)" }}>{item.quantity}</span>
@@ -89,7 +88,6 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
               </div>
               <div className="flex flex-col items-end justify-between">
                 <button onClick={() => remove(item.id)} className="p-1" style={{ color: "var(--text-dim)" }}><Trash2 size={14} /></button>
-                <p className="text-sm font-semibold font-mono" style={{ color: "var(--text)" }}>${(item.price * item.quantity).toFixed(2)}</p>
               </div>
             </div>
           ))}
@@ -98,10 +96,7 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
         {/* Footer */}
         {items.length > 0 && (
           <div className="px-5 py-4 border-t space-y-3" style={{ borderColor: "var(--border)" }}>
-            <div className="flex justify-between items-center">
-              <span className="font-medium" style={{ color: "var(--text-muted)" }}>Subtotal</span>
-              <span className="text-xl font-bold font-mono" style={{ color: "var(--text)" }}>${total.toFixed(2)}</span>
-            </div>
+            <p className="text-xs text-center" style={{ color: "var(--text-dim)" }}>Pricing will be confirmed with your order</p>
             <Link
               href="/products#order-form"
               onClick={onClose}

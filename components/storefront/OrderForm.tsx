@@ -6,7 +6,7 @@ import { useCart } from "./CartContext";
 import { ShoppingCart } from "lucide-react";
 
 export function OrderForm() {
-  const { items, total, clear } = useCart();
+  const { items, clear } = useCart();
   const router = useRouter();
   const [form, setForm] = useState({ name: "", phone: "", email: "", notes: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -67,14 +67,10 @@ export function OrderForm() {
       <div className="rounded-lg p-3 mb-5 space-y-2" style={{ background: "var(--muted)" }}>
         {items.map(i => (
           <div key={i.id} className="flex justify-between text-sm">
-            <span style={{ color: "var(--text)" }}>{i.product_name} <span className="font-mono" style={{ color: "var(--text-dim)" }}>×{i.quantity}</span></span>
-            <span className="font-mono font-medium" style={{ color: "var(--text)" }}>${(i.price * i.quantity).toFixed(2)}</span>
+            <span style={{ color: "var(--text)" }}>{i.product_name}</span>
+            <span className="font-mono" style={{ color: "var(--text-dim)" }}>×{i.quantity}</span>
           </div>
         ))}
-        <div className="border-t pt-2 flex justify-between font-semibold" style={{ borderColor: "var(--border)" }}>
-          <span style={{ color: "var(--text)" }}>Total</span>
-          <span className="font-mono" style={{ color: "var(--accent)" }}>${total.toFixed(2)}</span>
-        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">

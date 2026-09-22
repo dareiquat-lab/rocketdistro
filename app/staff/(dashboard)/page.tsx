@@ -1,5 +1,5 @@
 import { AdminHeader } from "@/components/layout/AdminHeader";
-import { ShoppingCart, Users, Sparkles } from "lucide-react";
+import { ShoppingCart, Users, Sparkles, Package } from "lucide-react";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 export default function StaffHomePage() {
   const cards = [
     { href: "/staff/orders", icon: <ShoppingCart size={28} />, label: "Orders", desc: "View and manage customer orders" },
+    { href: "/staff/products", icon: <Package size={28} />, label: "Products", desc: "Add and edit product catalog" },
     { href: "/staff/clients", icon: <Users size={28} />, label: "Clients", desc: "Add and look up client accounts" },
     { href: "/staff/import", icon: <Sparkles size={28} />, label: "AI Import", desc: "Upload screenshots to import orders" },
   ];
