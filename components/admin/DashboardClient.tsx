@@ -75,6 +75,9 @@ function ActivityFeed({ items }: { items: ActivityItem[] }) {
     <div className="card" style={{ padding: 0, overflow: "hidden", minWidth: 0 }}>
       <div className="flex items-center justify-between px-5 pt-5 pb-3">
         <h3 className="font-bold text-sm" style={{ color: "var(--text)" }}>Recent Activity</h3>
+        <a href="/admin/activity" className="text-xs flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
+          View all <ArrowRight size={12} />
+        </a>
       </div>
       {items.length === 0 ? (
         <p className="text-sm px-5 pb-5" style={{ color: "var(--text-dim)" }}>No activity yet.</p>

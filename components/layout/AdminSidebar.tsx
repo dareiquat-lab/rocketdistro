@@ -6,7 +6,7 @@ import { useState } from "react";
 import {
   Rocket, LayoutDashboard, Package, AlertTriangle, ShoppingCart,
   Users, Sparkles, TrendingUp, ScanLine, FileText, LogOut,
-  X, Menu, FileDown, Send, Award, FilePlus
+  X, Menu, FileDown, Send, Award, FilePlus, Activity
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { Sun, Moon } from "lucide-react";
@@ -34,6 +34,7 @@ export function AdminSidebar({ newOrdersCount = 0, lowStockCount = 0, userEmail 
 
   const navItems: NavItem[] = [
     { href: "/admin", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
+    { href: "/admin/activity", label: "Activity", icon: <Activity size={18} /> },
     { href: "/admin/inventory", label: "Inventory", icon: <Package size={18} /> },
     { href: "/admin/low-stock", label: "Low Stock", icon: <AlertTriangle size={18} />, badge: lowStockCount },
     { href: "/admin/orders", label: "Orders", icon: <ShoppingCart size={18} />, badge: newOrdersCount },
