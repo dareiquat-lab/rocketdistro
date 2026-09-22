@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Package, Layers, AlertTriangle, ShoppingCart, DollarSign, TrendingUp, RefreshCw, Users, ArrowRight } from "lucide-react";
+import { Package, Layers, AlertTriangle, ShoppingCart, DollarSign, TrendingUp, RefreshCw, Users, ArrowRight, FileText } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import type { DashboardStats } from "@/types";
+import type { DashboardStats, ActivityItem } from "@/types";
 import { ORDER_STATUSES } from "@/types";
 import {
   Tooltip, ResponsiveContainer, Cell,
@@ -34,6 +34,95 @@ function StatusBadge({ status }: { status: string }) {
     >
       {meta.label}
     </span>
+  );
+}
+
+const EVENT_META: Record<ActivityItem["event_type"], {
+  icon: React.ReactNode;
+  color: string;
+  verb: (item: ActivityItem) => string;
+  sub: (item: ActivityItem) => string;
+  href: (item: ActivityItem) => string;
+}> = {
+  order: {
+    icon: <ShoppingCart size={14} />,
+    color: "#2563eb",
+    verb: () => "Order placed",
+    sub: (i) => `${i.ref} · ${i.meta}`,
+    href: () => "/admin/orders",
+  },
+  product: {
+    icon: <Package size={14} />,
+    color: "#16a34a",
+    verb: (i) => {
+      const diff = new Date(i.ts).getTime() - new Date(i.created_at).getTime();
+      return diff < 5000 ? "Product added" : "Product updated";
+    },
+    sub: (i) => `SKU: ${i.ref} · qty ${i.meta}`,
+    href: (i) => `/admin/products/${i.id}`,
+  },
+  invoice: {
+    icon: <FileText size={14} />,
+    color: "#7c3aed",
+    verb: () => "Invoice imported",
+    sub: (i) => [i.ref && `#${i.ref}`, i.meta && `$${Number(i.meta).toFixed(2)}`].filter(Boolean).join(" · "),
+    href: () => "/admin/invoices",
+  },
+};
+
+function ActivityFeed({ items }: { items: ActivityItem[] }) {
+  return (
+    <div className="card" style={{ padding: 0, overflow: "hidden", minWidth: 0 }}>
+      <div className="flex items-center justify-between px-5 pt-5 pb-3">
+        <h3 className="font-bold text-sm" style={{ color: "var(--text)" }}>Recent Activity</h3>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-sm px-5 pb-5" style={{ color: "var(--text-dim)" }}>No activity yet.</p>
+      ) : (
+        <div className="overflow-y-auto" style={{ maxHeight: 340 }}>
+          {items.map((item, idx) => {
+            const meta = EVENT_META[item.event_type];
+            return (
+              <a
+                key={`${item.event_type}-${item.id}-${idx}`}
+                href={meta.href(item)}
+                style={{ textDecoration: "none", display: "block" }}
+              >
+                <div
+                  className="flex items-start gap-3 px-5 py-3 transition-colors hover:bg-[var(--muted)]"
+                  style={{ borderTop: idx > 0 ? "1px solid var(--border)" : undefined }}
+                >
+                  {/* Icon dot */}
+                  <div
+                    className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-0.5"
+                    style={{ background: `${meta.color}18`, color: meta.color }}
+                  >
+                    {meta.icon}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="text-sm font-semibold truncate" style={{ color: "var(--text)" }}>
+                        {meta.verb(item)}
+                        <span className="font-normal ml-1" style={{ color: "var(--text-muted)" }}>—</span>
+                        <span className="ml-1" style={{ color: "var(--text)" }}>{item.label}</span>
+                      </p>
+                      <span className="text-xs flex-shrink-0" style={{ color: "var(--text-dim)" }}>
+                        {formatDistanceToNow(new Date(item.ts), { addSuffix: true })}
+                      </span>
+                    </div>
+                    <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-dim)" }}>
+                      {meta.sub(item)}
+                    </p>
+                  </div>
+                </div>
+              </a>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -241,39 +330,8 @@ export function DashboardClient({ initialStats }: DashboardClientProps) {
           )}
         </div>
 
-        {/* Recently updated products */}
-        <div className="card" style={{ padding: 0, overflow: "hidden", minWidth: 0 }}>
-          <div className="flex items-center justify-between px-5 pt-5 pb-3">
-            <h3 className="font-bold text-sm" style={{ color: "var(--text)" }}>Recently Updated Products</h3>
-            <a href="/admin/inventory" className="text-xs flex items-center gap-1" style={{ color: "var(--accent)", textDecoration: "none" }}>
-              View all <ArrowRight size={12} />
-            </a>
-          </div>
-          {stats.recentlyUpdated.length === 0 ? (
-            <p className="text-sm px-5 pb-5" style={{ color: "var(--text-dim)" }}>No products yet.</p>
-          ) : (
-            <div className="table-container" style={{ border: "none", borderRadius: "0 0 0.875rem 0.875rem" }}>
-              <table className="table-base">
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th>SKU</th>
-                    <th className="text-right">Qty</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.recentlyUpdated.map((p) => (
-                    <tr key={p.id} style={{ cursor: "pointer" }} onClick={() => router.push(`/admin/products/${p.id}`)}>
-                      <td className="whitespace-nowrap" style={{ color: "var(--text)" }}>{p.product_name}</td>
-                      <td className="font-mono text-xs whitespace-nowrap" style={{ color: "var(--text-dim)" }}>{p.sku}</td>
-                      <td className="text-right font-mono font-bold" style={{ color: "var(--text)" }}>{p.quantity}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        {/* Recent activity feed */}
+        <ActivityFeed items={stats.recentActivity} />
       </div>
     </div>
   );

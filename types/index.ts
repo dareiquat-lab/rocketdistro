@@ -67,6 +67,16 @@ export interface Client {
   updated_at: string;
 }
 
+export interface ActivityItem {
+  event_type: "order" | "product" | "invoice";
+  id: number;
+  ref: string;
+  label: string;
+  meta: string;
+  ts: string;
+  created_at: string;
+}
+
 export interface DashboardStats {
   totalProducts: number;
   totalUnits: number;
@@ -78,6 +88,7 @@ export interface DashboardStats {
   totalClients: number;
   orderStatusBreakdown: { status: string; count: number }[];
   recentOrders: { id: number; order_number: string; customer_name: string; status: string; created_at: string; total: number }[];
+  recentActivity: ActivityItem[];
 }
 
 export interface CartItem {

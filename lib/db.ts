@@ -833,6 +833,9 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     clientCountRows,
     statusRows,
     recentOrderRows,
+    activityOrders,
+    activityProducts,
+    activityInvoices,
   ] = await Promise.all([
     sql`SELECT COUNT(*) as count FROM products`.catch(() => [{ count: 0 }]),
     sql`SELECT COALESCE(SUM(quantity), 0) as total FROM products`.catch(() => [{ total: 0 }]),
@@ -858,7 +861,30 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       GROUP BY o.id, o.order_number, o.customer_name, o.status, o.created_at
       ORDER BY o.created_at DESC LIMIT 5
     `.catch(() => []),
+    sql`
+      SELECT 'order' as event_type, id, order_number as ref, customer_name as label,
+             status as meta, created_at as ts, created_at
+      FROM orders ORDER BY created_at DESC LIMIT 10
+    `.catch(() => []),
+    sql`
+      SELECT 'product' as event_type, id, sku as ref, product_name as label,
+             quantity::text as meta, updated_at as ts, created_at
+      FROM products ORDER BY updated_at DESC LIMIT 10
+    `.catch(() => []),
+    sql`
+      SELECT 'invoice' as event_type, id, COALESCE(invoice_number, '') as ref,
+             supplier_name as label, total_amount::text as meta, created_at as ts, created_at
+      FROM supplier_invoices ORDER BY created_at DESC LIMIT 5
+    `.catch(() => []),
   ]);
+
+  const recentActivity = [
+    ...activityOrders,
+    ...activityProducts,
+    ...activityInvoices,
+  ]
+    .sort((a, b) => new Date(String(b.ts)).getTime() - new Date(String(a.ts)).getTime())
+    .slice(0, 20);
 
   return {
     totalProducts: parseInt(String(productCountRows[0]?.count ?? "0"), 10),
@@ -871,6 +897,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     totalClients: parseInt(String(clientCountRows[0]?.count ?? "0"), 10),
     orderStatusBreakdown: statusRows as { status: string; count: number }[],
     recentOrders: recentOrderRows as { id: number; order_number: string; customer_name: string; status: string; created_at: string; total: number }[],
+    recentActivity: recentActivity as unknown as import("@/types").ActivityItem[],
   };
 }
 
