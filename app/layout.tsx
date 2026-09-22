@@ -39,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <div className="shooting-star" aria-hidden="true" />
           <div className="shooting-star-2" aria-hidden="true" />
+          <div className="star-layer" aria-hidden="true" />
           {children}
         </Providers>
       </body>
