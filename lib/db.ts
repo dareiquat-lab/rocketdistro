@@ -393,9 +393,11 @@ export async function bulkAssignBrand(ids: number[], brand: string | null): Prom
   await sql`UPDATE products SET brand = ${brand}, updated_at = NOW() WHERE id = ANY(${ids})`;
 }
 
-export async function getAllProductsForExport(): Promise<Product[]> {
+export async function getAllProductsForExport(brand?: string): Promise<Product[]> {
   await ensureProductsTable();
-  const rows = await sql`SELECT * FROM products ORDER BY product_name`;
+  const rows = brand
+    ? await sql`SELECT * FROM products WHERE brand = ${brand} ORDER BY product_name`
+    : await sql`SELECT * FROM products ORDER BY product_name`;
   return rows as unknown as Product[];
 }
 

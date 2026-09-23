@@ -15,11 +15,14 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const format = searchParams.get("format") ?? "csv";
-    const products = await getAllProductsForExport();
+    const brand = searchParams.get("brand") ?? undefined;
+    const products = await getAllProductsForExport(brand);
+
+    const fileSlug = brand ? brand.toLowerCase().replace(/[^a-z0-9]+/g, "-") : "products";
 
     if (format === "json") {
       return NextResponse.json(products, {
-        headers: { "Content-Disposition": "attachment; filename=products.json" },
+        headers: { "Content-Disposition": `attachment; filename=${fileSlug}.json` },
       });
     }
 
@@ -44,7 +47,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse(csvBuffer, {
       headers: {
         "Content-Type": "text/csv",
-        "Content-Disposition": "attachment; filename=products.csv",
+        "Content-Disposition": `attachment; filename=${fileSlug}.csv`,
       },
     });
   } catch (e) {

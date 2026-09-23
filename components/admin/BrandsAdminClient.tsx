@@ -10,7 +10,7 @@ import type { Brand } from "@/types";
 
 type BrandWithCount = Brand & { product_count: number };
 
-export function BrandsAdminClient() {
+export function BrandsAdminClient({ staffMode = false }: { staffMode?: boolean }) {
   const [brands, setBrands] = useState<BrandWithCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -141,7 +141,7 @@ export function BrandsAdminClient() {
               key={b.id}
               className="card flex flex-col items-center text-center gap-3 p-4"
             >
-              <Link href={`/admin/inventory?brand=${encodeURIComponent(b.name)}`} className="flex flex-col items-center gap-2 w-full hover:opacity-80 transition-opacity">
+              <Link href={staffMode ? `/staff/products?brand=${encodeURIComponent(b.name)}` : `/admin/inventory?brand=${encodeURIComponent(b.name)}`} className="flex flex-col items-center gap-2 w-full hover:opacity-80 transition-opacity">
                 <div className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0" style={{ background: "var(--muted)" }}>
                   {b.image_url ? (
                     <Image src={b.image_url} alt={b.name} fill className="object-contain p-1" sizes="80px" />

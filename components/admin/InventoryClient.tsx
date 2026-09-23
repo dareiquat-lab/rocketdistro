@@ -185,7 +185,14 @@ export function InventoryClient({ staffMode = false }: { staffMode?: boolean }) 
               </button>
             </>
           )}
-          {!staffMode && <a href="/api/export?format=csv" className="btn-secondary">Export</a>}
+          {!staffMode && (
+            <a
+              href={`/api/export?format=csv${brand ? `&brand=${encodeURIComponent(brand)}` : ""}`}
+              className="btn-secondary"
+            >
+              Export{brand ? ` (${brand})` : ""}
+            </a>
+          )}
           <Link href={staffMode ? "/staff/products/new" : "/admin/products/new"} className="btn-primary">
             <Plus size={14} /> Add Product
           </Link>
