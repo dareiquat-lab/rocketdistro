@@ -231,7 +231,10 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-dim)" }} />
           <input className="input-field pl-8" placeholder="Search orders…" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
-        <Link href="/admin/orders/new" className="btn-primary"><Plus size={14} /> New Order</Link>
+        {staffMode
+          ? <button className="btn-primary" onClick={openCreate}><Plus size={14} /> New Order</button>
+          : <Link href="/admin/orders/new" className="btn-primary"><Plus size={14} /> New Order</Link>
+        }
       </div>
 
       {/* Status tabs */}
