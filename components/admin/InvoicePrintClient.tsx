@@ -8,6 +8,18 @@ interface InvoicePrintClientProps {
   order: Order;
 }
 
+const C = {
+  black:    "#111827",
+  dark:     "#1e293b",
+  mid:      "#475569",
+  muted:    "#64748b",
+  faint:    "#94a3b8",
+  light:    "#f8fafc",
+  border:   "#e2e8f0",
+  borderLt: "#f1f5f9",
+  blue:     "#2563eb",
+};
+
 export function InvoicePrintClient({ order }: InvoicePrintClientProps) {
   useEffect(() => {
     const t = setTimeout(() => window.print(), 500);
@@ -18,89 +30,100 @@ export function InvoicePrintClient({ order }: InvoicePrintClientProps) {
   const subtotal = items.reduce((s, i) => s + Number(i.price) * i.quantity, 0);
 
   return (
-    <div className="max-w-2xl mx-auto p-8 bg-white text-slate-900 min-h-screen">
-      <style>{`@media print { .no-print { display: none !important; } }`}</style>
+    <div style={{ maxWidth: "672px", margin: "0 auto", padding: "32px", minHeight: "100vh", background: "#ffffff", color: C.black, colorScheme: "light" as const, fontFamily: "Inter, system-ui, sans-serif" }}>
+      <style>{`
+        @media print {
+          .invoice-no-print { display: none !important; }
+          html, body { background: white !important; color: #111827 !important; }
+          body::before, body::after { display: none !important; }
+          .shooting-star, .shooting-star-2, .star-layer { display: none !important; }
+          * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+      `}</style>
 
       {/* Print button */}
-      <div className="no-print mb-6 flex justify-end">
+      <div className="invoice-no-print" style={{ marginBottom: "24px", display: "flex", justifyContent: "flex-end" }}>
         <button
           onClick={() => window.print()}
-          className="px-4 py-2 rounded-lg text-sm font-medium text-white"
-          style={{ background: "#2563eb" }}
+          style={{ background: C.blue, color: "white", padding: "8px 16px", borderRadius: "8px", fontSize: "14px", fontWeight: 500, border: "none", cursor: "pointer" }}
         >
           Print Invoice
         </button>
       </div>
 
       {/* Header */}
-      <div className="flex justify-between items-start mb-8">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "32px" }}>
         <div>
-          <h1 className="text-3xl font-black text-blue-600">🚀 ROCKET DISTRO</h1>
-          <p className="text-slate-500 text-sm">Wholesale Distribution</p>
-          <p className="text-slate-500 text-sm">orders@rocketdistro.com</p>
+          <h1 style={{ fontSize: "28px", fontWeight: 900, color: C.blue, margin: 0 }}>🚀 ROCKET DISTRO</h1>
+          <p style={{ color: C.muted, fontSize: "14px", margin: "4px 0 0" }}>Wholesale Distribution</p>
+          <p style={{ color: C.muted, fontSize: "14px", margin: "2px 0 0" }}>orders@rocketdistro.com</p>
         </div>
-        <div className="text-right">
-          <h2 className="text-2xl font-bold text-slate-700">INVOICE</h2>
-          <p className="text-sm text-slate-500 mt-1">#{order.order_number}</p>
-          <p className="text-sm text-slate-500">{format(new Date(order.created_at), "MMMM d, yyyy")}</p>
+        <div style={{ textAlign: "right" }}>
+          <h2 style={{ fontSize: "24px", fontWeight: 700, color: C.dark, margin: 0 }}>INVOICE</h2>
+          <p style={{ fontSize: "14px", color: C.muted, margin: "4px 0 0" }}>#{order.order_number}</p>
+          <p style={{ fontSize: "14px", color: C.muted, margin: "2px 0 0" }}>{format(new Date(order.created_at), "MMMM d, yyyy")}</p>
         </div>
       </div>
 
-      {/* Bill To */}
-      <div className="grid grid-cols-2 gap-8 mb-8">
+      {/* Bill To / Order Info */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px", marginBottom: "32px" }}>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Bill To</p>
-          <p className="font-semibold">{order.customer_name}</p>
-          <p className="text-sm text-slate-600">{order.customer_phone}</p>
-          <p className="text-sm text-slate-600">{order.customer_email}</p>
+          <p style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: C.faint, margin: "0 0 8px" }}>Bill To</p>
+          <p style={{ fontWeight: 600, color: C.black, margin: "0 0 2px" }}>{order.customer_name}</p>
+          <p style={{ fontSize: "14px", color: C.mid, margin: "0 0 2px" }}>{order.customer_phone}</p>
+          {order.customer_email && <p style={{ fontSize: "14px", color: C.mid, margin: 0 }}>{order.customer_email}</p>}
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Order Info</p>
-          <p className="text-sm"><span className="text-slate-400">Status:</span> <span className="font-medium capitalize">{order.status}</span></p>
-          <p className="text-sm"><span className="text-slate-400">Date:</span> {format(new Date(order.created_at), "MMM d, yyyy")}</p>
+          <p style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: C.faint, margin: "0 0 8px" }}>Order Info</p>
+          <p style={{ fontSize: "14px", color: C.black, margin: "0 0 2px" }}>
+            <span style={{ color: C.faint }}>Status: </span>
+            <span style={{ fontWeight: 500, textTransform: "capitalize" }}>{order.status}</span>
+          </p>
+          <p style={{ fontSize: "14px", color: C.black, margin: 0 }}>
+            <span style={{ color: C.faint }}>Date: </span>
+            {format(new Date(order.created_at), "MMM d, yyyy")}
+          </p>
         </div>
       </div>
 
       {/* Items */}
-      <table className="w-full mb-8 border-collapse">
+      <table style={{ width: "100%", marginBottom: "32px", borderCollapse: "collapse" }}>
         <thead>
-          <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-            <th className="text-left py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Product</th>
-            <th className="text-left py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Brand</th>
-            <th className="text-center py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Qty</th>
-            <th className="text-right py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Unit Price</th>
-            <th className="text-right py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Total</th>
+          <tr style={{ borderBottom: `2px solid ${C.border}` }}>
+            {["Product", "Brand", "Qty", "Unit Price", "Total"].map((h, i) => (
+              <th key={h} style={{ padding: "8px 0", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: C.faint, textAlign: i >= 2 ? (i === 2 ? "center" : "right") : "left" }}>{h}</th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {items.map(item => (
-            <tr key={item.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-              <td className="py-2.5 text-sm">{item.product_name}</td>
-              <td className="py-2.5 text-xs text-slate-500">{item.product_brand ?? "—"}</td>
-              <td className="py-2.5 text-sm text-center">{item.quantity}</td>
-              <td className="py-2.5 text-sm text-right font-mono">${Number(item.price).toFixed(2)}</td>
-              <td className="py-2.5 text-sm text-right font-mono font-medium">${(Number(item.price) * item.quantity).toFixed(2)}</td>
+            <tr key={item.id} style={{ borderBottom: `1px solid ${C.borderLt}` }}>
+              <td style={{ padding: "10px 0", fontSize: "14px", color: C.black }}>{item.product_name}</td>
+              <td style={{ padding: "10px 0", fontSize: "12px", color: C.muted }}>{item.product_brand ?? "—"}</td>
+              <td style={{ padding: "10px 0", fontSize: "14px", textAlign: "center", color: C.black }}>{item.quantity}</td>
+              <td style={{ padding: "10px 0", fontSize: "14px", textAlign: "right", fontFamily: "monospace", color: C.black }}>${Number(item.price).toFixed(2)}</td>
+              <td style={{ padding: "10px 0", fontSize: "14px", textAlign: "right", fontFamily: "monospace", fontWeight: 500, color: C.black }}>${(Number(item.price) * item.quantity).toFixed(2)}</td>
             </tr>
           ))}
         </tbody>
         <tfoot>
-          <tr style={{ borderTop: "2px solid #e2e8f0" }}>
-            <td colSpan={4} className="py-3 text-right font-semibold text-slate-700">Total</td>
-            <td className="py-3 text-right font-bold text-lg font-mono">${subtotal.toFixed(2)}</td>
+          <tr style={{ borderTop: `2px solid ${C.border}` }}>
+            <td colSpan={4} style={{ padding: "12px 0", textAlign: "right", fontWeight: 600, color: C.dark }}>Total</td>
+            <td style={{ padding: "12px 0", textAlign: "right", fontWeight: 700, fontSize: "18px", fontFamily: "monospace", color: C.black }}>${subtotal.toFixed(2)}</td>
           </tr>
         </tfoot>
       </table>
 
       {order.notes && (
-        <div className="mb-8 p-4 rounded-lg bg-slate-50">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">Notes</p>
-          <p className="text-sm text-slate-700">{order.notes}</p>
+        <div style={{ marginBottom: "32px", padding: "16px", borderRadius: "8px", background: C.light }}>
+          <p style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: C.faint, margin: "0 0 4px" }}>Notes</p>
+          <p style={{ fontSize: "14px", color: C.dark, margin: 0 }}>{order.notes}</p>
         </div>
       )}
 
-      <div className="text-center pt-8 border-t border-slate-200">
-        <p className="text-sm text-slate-500">Thank you for your business!</p>
-        <p className="text-xs text-slate-400 mt-1">Questions? Contact orders@rocketdistro.com</p>
+      <div style={{ textAlign: "center", paddingTop: "32px", borderTop: `1px solid ${C.border}` }}>
+        <p style={{ fontSize: "14px", color: C.muted, margin: "0 0 4px" }}>Thank you for your business!</p>
+        <p style={{ fontSize: "12px", color: C.faint, margin: 0 }}>Questions? Contact orders@rocketdistro.com</p>
       </div>
     </div>
   );
