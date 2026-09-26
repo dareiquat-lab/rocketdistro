@@ -54,8 +54,9 @@ function PriceInput({ value, onChange }: { value: number; onChange: (v: number) 
   );
 }
 
-export function CreateOrderClient() {
+export function CreateOrderClient({ staffMode = false }: { staffMode?: boolean }) {
   const router = useRouter();
+  const ordersHref = staffMode ? "/staff/orders" : "/admin/orders";
 
   // ── Product browser state ────────────────────────────────────────────────────
   const [products, setProducts] = useState<Product[]>([]);
@@ -188,7 +189,7 @@ export function CreateOrderClient() {
       });
       if (res.ok) {
         const order = await res.json();
-        router.push(`/admin/orders?highlight=${order.id}`);
+        router.push(`${ordersHref}?highlight=${order.id}`);
       } else {
         const err = await res.json();
         setError(err.error ?? "Failed to create order");
@@ -203,7 +204,7 @@ export function CreateOrderClient() {
       <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
 
         {/* Back nav */}
-        <Link href="/admin/orders" className="inline-flex items-center gap-1 text-sm hover:opacity-70 transition-opacity" style={{ color: "var(--text-muted)" }}>
+        <Link href={ordersHref} className="inline-flex items-center gap-1 text-sm hover:opacity-70 transition-opacity" style={{ color: "var(--text-muted)" }}>
           <ChevronLeft size={15} /> Back to Orders
         </Link>
 
@@ -531,7 +532,7 @@ export function CreateOrderClient() {
           >
             {saving ? "Creating Order…" : "Create Order"}
           </button>
-          <Link href="/admin/orders" className="text-sm hover:opacity-70 transition-opacity" style={{ color: "var(--text-muted)" }}>
+          <Link href={ordersHref} className="text-sm hover:opacity-70 transition-opacity" style={{ color: "var(--text-muted)" }}>
             Cancel
           </Link>
           {!canSubmit && (

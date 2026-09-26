@@ -4,40 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { Search, Plus, Trash2, Eye, Printer, Mail, ChevronDown, ChevronUp, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
-import { ClientPicker } from "@/components/admin/ClientPicker";
 import { EmailInvoiceModal } from "@/components/admin/EmailInvoiceModal";
-import type { Order, OrderItem, Client, Product } from "@/types";
-import { ORDER_STATUSES, CLIENT_TYPES } from "@/types";
-
-const STATUS_BADGE: Record<string, "info" | "purple" | "warning" | "success" | "danger"> = {
-  new: "info", contacted: "purple", ready: "warning", completed: "success", cancelled: "danger",
-};
-
-interface OrderFormItem {
-  product_id: number | null;
-  product_name: string;
-  product_sku: string | null;
-  quantity: number;
-  price: number;
-  cost: number;
-}
-
-interface OrderFormData {
-  customer_name: string;
-  customer_phone: string;
-  customer_email: string;
-  business_name: string;
-  client_type: string;
-  notes: string;
-  items: OrderFormItem[];
-}
-
-const emptyForm = (): OrderFormData => ({
-  customer_name: "", customer_phone: "", customer_email: "",
-  business_name: "", client_type: "Retailer", notes: "", items: [],
-});
+import type { Order, OrderItem } from "@/types";
+import { ORDER_STATUSES } from "@/types";
 
 export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -49,16 +19,9 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
-  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-  const [form, setForm] = useState<OrderFormData>(emptyForm());
-  const [productSearch, setProductSearch] = useState("");
-  const [productResults, setProductResults] = useState<Product[]>([]);
-  const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [emailOrder, setEmailOrder] = useState<Order | null>(null);
-  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
@@ -83,123 +46,6 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
-  const searchProducts = async (q: string) => {
-    if (!q || q.length < 2) { setProductResults([]); return; }
-    const res = await fetch(`/api/products?admin=true&search=${encodeURIComponent(q)}&limit=10`);
-    if (res.ok) {
-      const data = await res.json();
-      setProductResults(data.products ?? []);
-    }
-  };
-
-  useEffect(() => {
-    const t = setTimeout(() => searchProducts(productSearch), 300);
-    return () => clearTimeout(t);
-  }, [productSearch]);
-
-  const addProduct = (p: Product) => {
-    setForm(f => ({
-      ...f,
-      items: [...f.items, {
-        product_id: p.id,
-        product_name: p.product_name,
-        product_sku: p.sku,
-        quantity: 1,
-        price: Number(p.price),
-        cost: Number(p.cost),
-      }],
-    }));
-    setProductSearch("");
-    setProductResults([]);
-  };
-
-  const addCustomItem = () => {
-    setForm(f => ({
-      ...f,
-      items: [...f.items, { product_id: null, product_name: "", product_sku: null, quantity: 1, price: 0, cost: 0 }],
-    }));
-  };
-
-  const removeItem = (i: number) => {
-    setForm(f => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }));
-  };
-
-  const updateItem = (i: number, field: keyof OrderFormItem, value: string | number) => {
-    setForm(f => ({
-      ...f,
-      items: f.items.map((item, idx) => idx === i ? { ...item, [field]: value } : item),
-    }));
-  };
-
-  const orderTotal = (items: OrderFormItem[]) =>
-    items.reduce((s, i) => s + Number(i.price) * Number(i.quantity), 0);
-
-  const openCreate = () => {
-    setEditingOrder(null);
-    setForm(emptyForm());
-    setSaveError("");
-    setFormOpen(true);
-  };
-
-  const openEdit = (order: Order) => {
-    setEditingOrder(order);
-    setSaveError("");
-    setForm({
-      customer_name: order.customer_name,
-      customer_phone: order.customer_phone,
-      customer_email: order.customer_email,
-      business_name: "",
-      client_type: "Retailer",
-      notes: order.notes ?? "",
-      items: (order.items ?? []).map(i => ({
-        product_id: i.product_id,
-        product_name: i.product_name,
-        product_sku: i.product_sku,
-        quantity: i.quantity,
-        price: Number(i.price),
-        cost: Number(i.cost),
-      })),
-    });
-    setFormOpen(true);
-  };
-
-  const handleClientSelect = (client: Client) => {
-    setForm(f => ({
-      ...f,
-      customer_name: client.contact_name ?? client.business_name,
-      customer_phone: client.phone ?? "",
-      customer_email: client.email ?? "",
-      business_name: client.business_name,
-      client_type: client.client_type,
-    }));
-  };
-
-  const handleSave = async () => {
-    if (!form.customer_name || !form.customer_phone || form.items.length === 0) return;
-    const blankItem = form.items.find(i => !i.product_name.trim());
-    if (blankItem) { setSaveError("All items must have a product name."); return; }
-    setSaving(true);
-    setSaveError("");
-    try {
-      const body = { ...form };
-      const res = editingOrder
-        ? await fetch(`/api/admin/orders/${editingOrder.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-        : await fetch("/api/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (res.ok) {
-        setFormOpen(false);
-        setSaveError("");
-        fetchOrders();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        setSaveError(err.error ?? "Save failed. Please try again.");
-      }
-    } catch {
-      setSaveError("Network error. Please check your connection.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleStatusChange = async (id: number, newStatus: string) => {
     await fetch(`/api/admin/orders/${id}`, {
       method: "PUT",
@@ -223,6 +69,10 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
 
   const itemTotal = (items: OrderItem[]) => items.reduce((s, i) => s + Number(i.price) * i.quantity, 0);
 
+  const invoiceBase = staffMode ? "/staff/orders" : "/admin/orders";
+  const editBase = staffMode ? "/staff/orders" : "/admin/orders";
+  const newOrderHref = staffMode ? "/staff/orders/new" : "/admin/orders/new";
+
   return (
     <div className="p-6 space-y-4">
       {/* Toolbar */}
@@ -231,10 +81,7 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-dim)" }} />
           <input className="input-field pl-8" placeholder="Search orders…" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
-        {staffMode
-          ? <button className="btn-primary" onClick={openCreate}><Plus size={14} /> New Order</button>
-          : <Link href="/admin/orders/new" className="btn-primary"><Plus size={14} /> New Order</Link>
-        }
+        <Link href={newOrderHref} className="btn-primary"><Plus size={14} /> New Order</Link>
       </div>
 
       {/* Status tabs */}
@@ -322,8 +169,8 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
                   </td>
                   <td>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => openEdit(order)} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--accent)" }} title="Edit"><Eye size={14} /></button>
-                      <a href={`/admin/orders/${order.id}/invoice`} target="_blank" className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--text-muted)" }} title="Invoice"><Printer size={14} /></a>
+                      <Link href={`${editBase}/${order.id}/edit`} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--accent)" }} title="Edit"><Eye size={14} /></Link>
+                      <a href={`${invoiceBase}/${order.id}/invoice`} target="_blank" className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--text-muted)" }} title="Invoice"><Printer size={14} /></a>
                       <button onClick={() => setEmailOrder(order)} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--text-muted)" }} title="Email"><Mail size={14} /></button>
                       {!staffMode && <button onClick={() => setDeleteId(order.id)} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--danger)" }} title="Delete"><Trash2 size={14} /></button>}
                     </div>
@@ -364,129 +211,6 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
           <button className="btn-secondary py-1.5 px-3" onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page === pages}>›</button>
         </div>
       )}
-
-      {/* Create/Edit Modal */}
-      <Modal open={formOpen} onClose={() => setFormOpen(false)} title={editingOrder ? `Edit ${editingOrder.order_number}` : "New Order"} size="2xl">
-        <div className="space-y-5">
-          <ClientPicker onSelect={handleClientSelect} />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div><label className="label">Customer Name *</label><input className="input-field" value={form.customer_name} onChange={e => setForm(f => ({ ...f, customer_name: e.target.value }))} /></div>
-            <div><label className="label">Phone *</label><input className="input-field" value={form.customer_phone} onChange={e => setForm(f => ({ ...f, customer_phone: e.target.value }))} /></div>
-            <div><label className="label">Email *</label><input className="input-field" value={form.customer_email} onChange={e => setForm(f => ({ ...f, customer_email: e.target.value }))} /></div>
-            <div><label className="label">Business Name</label><input className="input-field" value={form.business_name} onChange={e => setForm(f => ({ ...f, business_name: e.target.value }))} /></div>
-          </div>
-          <div><label className="label">Notes</label><textarea className="input-field" rows={2} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="label mb-0">Items</label>
-              <button type="button" className="btn-secondary py-1 px-2 text-xs" onClick={addCustomItem}>+ Custom Item</button>
-            </div>
-            {/* Product search */}
-            <div className="relative mb-3">
-              <input className="input-field" placeholder="Search products to add…" value={productSearch} onChange={e => setProductSearch(e.target.value)} />
-              {productResults.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 rounded-lg shadow-lg overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-                  {productResults.map(p => (
-                    <button key={p.id} type="button" onClick={() => addProduct(p)} className="flex items-center justify-between w-full px-3 py-2 text-sm hover:bg-[var(--muted)] transition-colors">
-                      <span style={{ color: "var(--text)" }}>{p.product_name} <span className="font-mono text-xs" style={{ color: "var(--text-dim)" }}>{p.sku}</span></span>
-                      <span className="font-mono text-xs" style={{ color: "var(--accent)" }}>${Number(p.price).toFixed(2)}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {/* Item list */}
-            <div className="space-y-3">
-              {form.items.map((item, i) => (
-                <div key={i} className="p-3 rounded-lg" style={{ background: "var(--muted)" }}>
-                  {/* Product name row */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <input
-                      className="input-field flex-1 font-medium"
-                      placeholder="Product name"
-                      value={item.product_name}
-                      onChange={e => updateItem(i, "product_name", e.target.value)}
-                      style={{ background: "var(--background)" }}
-                    />
-                    <button type="button" onClick={() => removeItem(i)} style={{ color: "var(--danger)" }} className="p-1 hover:opacity-70 flex-shrink-0">✕</button>
-                  </div>
-                  {item.product_sku && (
-                    <p className="text-xs mb-2" style={{ color: "var(--text-dim)" }}>SKU: {item.product_sku}</p>
-                  )}
-                  {/* Qty / Price / Cost row */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="text-xs block mb-1" style={{ color: "var(--text-dim)" }}>Qty</label>
-                      <input
-                        className="input-field w-full"
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onFocus={e => e.target.select()}
-                        onChange={e => updateItem(i, "quantity", parseInt(e.target.value) || 1)}
-                        style={{ background: "var(--background)" }}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs block mb-1" style={{ color: "var(--text-dim)" }}>Price ($)</label>
-                      <input
-                        className="input-field w-full"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={item.price}
-                        onFocus={e => e.target.select()}
-                        onChange={e => updateItem(i, "price", parseFloat(e.target.value) || 0)}
-                        style={{ background: "var(--background)" }}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs block mb-1" style={{ color: "var(--text-dim)" }}>Cost ($)</label>
-                      <input
-                        className="input-field w-full"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={item.cost}
-                        onFocus={e => e.target.select()}
-                        onChange={e => updateItem(i, "cost", parseFloat(e.target.value) || 0)}
-                        style={{ background: "var(--background)" }}
-                      />
-                    </div>
-                  </div>
-                  <p className="text-xs text-right mt-1" style={{ color: "var(--text-dim)" }}>
-                    Subtotal: ${(Number(item.price) * Number(item.quantity)).toFixed(2)}
-                    {item.cost > 0 && (
-                      <span className="ml-2" style={{ color: "var(--success, #22c55e)" }}>
-                        Profit: ${((Number(item.price) - Number(item.cost)) * Number(item.quantity)).toFixed(2)}
-                      </span>
-                    )}
-                  </p>
-                </div>
-              ))}
-            </div>
-            {form.items.length > 0 && (
-              <p className="text-right text-sm font-semibold mt-2" style={{ color: "var(--text)" }}>
-                Total: ${orderTotal(form.items).toFixed(2)}
-              </p>
-            )}
-          </div>
-
-          {saveError && (
-            <p className="text-sm px-3 py-2 rounded-lg" style={{ background: "rgba(220,38,38,0.1)", color: "var(--danger)" }}>
-              {saveError}
-            </p>
-          )}
-
-          <div className="flex gap-2 justify-end pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-            <button className="btn-secondary" onClick={() => { setFormOpen(false); setSaveError(""); }}>Cancel</button>
-            <button className="btn-primary" onClick={handleSave} disabled={saving || !form.customer_name || !form.customer_phone || form.items.length === 0}>
-              {saving ? "Saving…" : editingOrder ? "Save Changes" : "Create Order"}
-            </button>
-          </div>
-        </div>
-      </Modal>
 
       {/* Delete Modal */}
       <Modal open={deleteId !== null} onClose={() => setDeleteId(null)} title="Delete Order" size="sm">
