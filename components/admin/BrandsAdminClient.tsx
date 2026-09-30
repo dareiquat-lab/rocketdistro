@@ -164,12 +164,14 @@ export function BrandsAdminClient({ staffMode = false }: { staffMode?: boolean }
                 >
                   <Edit size={12} /> Edit
                 </button>
-                <button
-                  className="btn-danger py-1.5 px-2.5 text-xs"
-                  onClick={() => setDeleteId(b.id)}
-                >
-                  <Trash2 size={12} />
-                </button>
+                {!staffMode && (
+                  <button
+                    className="btn-danger py-1.5 px-2.5 text-xs"
+                    onClick={() => setDeleteId(b.id)}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
               </div>
             </div>
           ))}
