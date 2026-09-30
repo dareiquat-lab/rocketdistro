@@ -814,6 +814,22 @@ export async function updateOrderStatus(id: number, status: string): Promise<voi
 
 export async function deleteOrder(id: number): Promise<void> {
   await ensureOrdersTable();
+  await ensureOrderItemsTable();
+
+  const order = await getOrderById(id);
+  if (order?.status === "completed") {
+    for (const item of order.items ?? []) {
+      if (item.product_id) {
+        await sql`
+          UPDATE products
+          SET quantity = quantity + ${item.quantity},
+              updated_at = NOW()
+          WHERE id = ${item.product_id}
+        `;
+      }
+    }
+  }
+
   await sql`DELETE FROM order_items WHERE order_id = ${id}`;
   await sql`DELETE FROM orders WHERE id = ${id}`;
 }

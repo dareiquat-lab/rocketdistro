@@ -22,6 +22,7 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [emailOrder, setEmailOrder] = useState<Order | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
@@ -30,6 +31,7 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       const params = new URLSearchParams({ search: debouncedSearch, status, page: String(page), limit: "25" });
       const res = await fetch(`/api/admin/orders?${params}`);
@@ -38,7 +40,11 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
         setOrders(data.orders ?? []);
         setTotal(data.total ?? 0);
         setPages(data.pages ?? 1);
+      } else {
+        setError("Failed to load orders. Please refresh.");
       }
+    } catch {
+      setError("Network error loading orders.");
     } finally {
       setLoading(false);
     }
@@ -47,21 +53,41 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
   const handleStatusChange = async (id: number, newStatus: string) => {
-    await fetch(`/api/admin/orders/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
-    });
+    const prevOrder = orders.find(o => o.id === id);
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus as Order["status"] } : o));
+    try {
+      const res = await fetch(`/api/admin/orders/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) {
+        if (prevOrder) setOrders(prev => prev.map(o => o.id === id ? prevOrder : o));
+        const err = await res.json().catch(() => ({}));
+        setError(err.error ?? "Failed to update order status.");
+      }
+    } catch {
+      if (prevOrder) setOrders(prev => prev.map(o => o.id === id ? prevOrder : o));
+      setError("Network error. Status was not updated.");
+    }
   };
 
   const handleDelete = async () => {
     if (!deleteId) return;
     setDeleting(true);
     try {
-      await fetch(`/api/admin/orders/${deleteId}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/orders/${deleteId}`, { method: "DELETE" });
+      if (res.ok) {
+        setDeleteId(null);
+        fetchOrders();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setError(err.error ?? "Failed to delete order.");
+        setDeleteId(null);
+      }
+    } catch {
+      setError("Network error. Order was not deleted.");
       setDeleteId(null);
-      fetchOrders();
     } finally {
       setDeleting(false);
     }
@@ -101,6 +127,13 @@ export function OrdersClient({ staffMode = false }: { staffMode?: boolean }) {
           </button>
         ))}
       </div>
+
+      {error && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(220,38,38,0.1)", color: "var(--danger)", border: "1px solid rgba(220,38,38,0.2)" }}>
+          <span className="flex-1">{error}</span>
+          <button onClick={() => setError("")} className="hover:opacity-70 text-base leading-none">×</button>
+        </div>
+      )}
 
       <p className="text-xs" style={{ color: "var(--text-dim)" }}>{total.toLocaleString()} order{total !== 1 ? "s" : ""}</p>
 
