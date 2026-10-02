@@ -1261,8 +1261,8 @@ export async function reassignBrandProducts(fromBrandId: number, toBrandId: numb
   await ensureProductsTable();
   await ensureProductBrandColumn();
   const [fromBrand, toBrand] = await Promise.all([
-    sql`SELECT name FROM brands WHERE id = ${fromBrandId}`.then(r => r.rows[0]),
-    sql`SELECT name FROM brands WHERE id = ${toBrandId}`.then(r => r.rows[0]),
+    sql`SELECT name FROM brands WHERE id = ${fromBrandId}`.then(r => r[0]),
+    sql`SELECT name FROM brands WHERE id = ${toBrandId}`.then(r => r[0]),
   ]);
   if (!fromBrand || !toBrand) return;
   await sql`UPDATE products SET brand = ${toBrand.name}, updated_at = NOW() WHERE brand = ${fromBrand.name}`;
