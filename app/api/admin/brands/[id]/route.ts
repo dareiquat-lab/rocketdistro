@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { ADMIN_COOKIE, STAFF_COOKIE, isAdminOrStaff, computeAdminToken } from "@/lib/auth-utils";
-import { getBrands, updateBrand, deleteBrand, applyBrandImageToProducts } from "@/lib/db";
+import { getBrands, updateBrand, deleteBrand, reassignBrandProducts, applyBrandImageToProducts } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +46,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(ADMIN_COOKIE)?.value;
@@ -55,7 +55,16 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
-    await deleteBrand(parseInt(id));
+    const brandId = parseInt(id);
+
+    let reassignToId: number | null = null;
+    try {
+      const body = await request.json();
+      if (body?.reassignToId) reassignToId = parseInt(body.reassignToId);
+    } catch {}
+
+    if (reassignToId) await reassignBrandProducts(brandId, reassignToId);
+    await deleteBrand(brandId);
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error(e);

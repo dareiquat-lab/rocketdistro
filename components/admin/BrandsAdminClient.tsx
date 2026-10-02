@@ -16,6 +16,7 @@ export function BrandsAdminClient({ staffMode = false }: { staffMode?: boolean }
   const [addOpen, setAddOpen] = useState(false);
   const [editBrand, setEditBrand] = useState<BrandWithCount | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [reassignToId, setReassignToId] = useState<number | "">("");
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -101,8 +102,13 @@ export function BrandsAdminClient({ staffMode = false }: { staffMode?: boolean }
     if (!deleteId) return;
     setDeleting(true);
     try {
-      await fetch(`/api/admin/brands/${deleteId}`, { method: "DELETE" });
+      await fetch(`/api/admin/brands/${deleteId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reassignToId: reassignToId || null }),
+      });
       setDeleteId(null);
+      setReassignToId("");
       fetchBrands();
     } finally {
       setDeleting(false);
@@ -244,16 +250,45 @@ export function BrandsAdminClient({ staffMode = false }: { staffMode?: boolean }
         </div>
       </Modal>
 
-      <Modal open={deleteId !== null} onClose={() => setDeleteId(null)} title="Delete Brand" size="sm">
-        <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
-          Delete this brand? Products associated with it will not be deleted, but their brand field will remain set.
-        </p>
-        <div className="flex gap-2 justify-end">
-          <button className="btn-secondary" onClick={() => setDeleteId(null)}>Cancel</button>
-          <button className="btn-danger" onClick={handleDelete} disabled={deleting}>
-            {deleting ? "Deleting…" : "Delete"}
-          </button>
-        </div>
+      <Modal open={deleteId !== null} onClose={() => { setDeleteId(null); setReassignToId(""); }} title="Delete Brand" size="sm">
+        {(() => {
+          const target = brands.find(b => b.id === deleteId);
+          const others = brands.filter(b => b.id !== deleteId);
+          const hasProducts = (target?.product_count ?? 0) > 0;
+          return (
+            <div className="space-y-4">
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                Are you sure you want to delete <strong style={{ color: "var(--text)" }}>{target?.name}</strong>?
+                {hasProducts && (
+                  <> This brand has <strong style={{ color: "var(--text)" }}>{target!.product_count} product{target!.product_count !== 1 ? "s" : ""}</strong> assigned to it.</>
+                )}
+              </p>
+              {hasProducts && (
+                <div>
+                  <label className="block text-sm font-medium mb-1.5" style={{ color: "var(--text)" }}>
+                    Reassign products to
+                  </label>
+                  <select
+                    className="input-field w-full"
+                    value={reassignToId}
+                    onChange={e => setReassignToId(e.target.value ? Number(e.target.value) : "")}
+                  >
+                    <option value="">— Leave unassigned —</option>
+                    {others.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="flex gap-2 justify-end">
+                <button className="btn-secondary" onClick={() => { setDeleteId(null); setReassignToId(""); }}>Cancel</button>
+                <button className="btn-danger" onClick={handleDelete} disabled={deleting}>
+                  {deleting ? "Deleting…" : "Delete"}
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       </Modal>
     </div>
   );
