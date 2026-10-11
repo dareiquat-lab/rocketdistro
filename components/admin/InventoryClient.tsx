@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, Plus, Trash2, Edit, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Package, X, Tag } from "lucide-react";
+import { Search, Plus, Trash2, Edit, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Package, X, Tag, Download, FileText, FileSpreadsheet } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
@@ -32,6 +32,18 @@ export function InventoryClient({ staffMode = false }: { staffMode?: boolean }) 
   const [deleting, setDeleting] = useState(false);
   const [editQtyId, setEditQtyId] = useState<number | null>(null);
   const [editQtyValue, setEditQtyValue] = useState("");
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setExportOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
@@ -186,12 +198,36 @@ export function InventoryClient({ staffMode = false }: { staffMode?: boolean }) 
             </>
           )}
           {!staffMode && (
-            <a
-              href={`/api/export?format=csv${brand ? `&brand=${encodeURIComponent(brand)}` : ""}`}
-              className="btn-secondary"
-            >
-              Export{brand ? ` (${brand})` : ""}
-            </a>
+            <div className="relative" ref={exportRef}>
+              <button className="btn-secondary" onClick={() => setExportOpen(o => !o)}>
+                <Download size={14} /> Export{brand ? ` (${brand})` : ""} <ChevronDown size={12} />
+              </button>
+              {exportOpen && (
+                <div
+                  className="absolute right-0 mt-1 w-44 rounded-lg shadow-lg z-20 overflow-hidden"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                >
+                  <a
+                    href={`/api/export?format=csv${brand ? `&brand=${encodeURIComponent(brand)}` : ""}`}
+                    className="flex items-center gap-2 px-3 py-2.5 text-sm hover:opacity-70"
+                    style={{ color: "var(--text)" }}
+                    onClick={() => setExportOpen(false)}
+                  >
+                    <FileSpreadsheet size={14} /> CSV / Excel
+                  </a>
+                  <a
+                    href={`/admin/inventory/print${brand ? `?brand=${encodeURIComponent(brand)}` : ""}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 px-3 py-2.5 text-sm hover:opacity-70"
+                    style={{ color: "var(--text)" }}
+                    onClick={() => setExportOpen(false)}
+                  >
+                    <FileText size={14} /> PDF (Print)
+                  </a>
+                </div>
+              )}
+            </div>
           )}
           <Link href={staffMode ? "/staff/products/new" : "/admin/products/new"} className="btn-primary">
             <Plus size={14} /> Add Product
