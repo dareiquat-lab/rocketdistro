@@ -31,8 +31,6 @@ export async function GET(request: NextRequest) {
       "Product Name": p.product_name,
       SKU: p.sku,
       Quantity: p.quantity,
-      Price: p.price,
-      Cost: p.cost,
       Barcode: p.barcode ?? "",
       Notes: p.notes ?? "",
       "Created At": p.created_at,
