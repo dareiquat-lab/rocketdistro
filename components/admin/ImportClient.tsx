@@ -135,11 +135,16 @@ export function ImportClient() {
         const res = await fetch("/api/ai-parse", { method: "POST", body: formData });
         if (res.ok) {
           const data = await res.json();
+          const parseErrors = (data.results ?? []).filter((r: { error?: string }) => r.error).map((r: { error?: string }) => r.error);
           const rawItems = (data.results ?? []).flatMap((r: { supplier?: string; items?: { name: string; brand?: string | null; quantity: number; unit_cost: number }[] }) => r.items ?? []);
           const allItems = mergePromoItems(rawItems);
-          const supplierName = (data.results ?? []).find((r: { supplier?: string }) => r.supplier)?.supplier ?? "";
-          const total = allItems.reduce((s: number, i: { quantity: number; unit_cost: number }) => s + i.quantity * i.unit_cost, 0);
-          setInvoiceData({ supplier_name: supplierName, invoice_number: "", invoice_date: "", items: allItems, total, source: "ai" });
+          if (allItems.length === 0) {
+            setError(parseErrors.length > 0 ? `AI could not parse this file. Try a clearer scan or use an Excel file instead.` : "AI found no line items in this file. Try a clearer scan or use an Excel file instead.");
+          } else {
+            const supplierName = (data.results ?? []).find((r: { supplier?: string }) => r.supplier)?.supplier ?? "";
+            const total = allItems.reduce((s: number, i: { quantity: number; unit_cost: number }) => s + i.quantity * i.unit_cost, 0);
+            setInvoiceData({ supplier_name: supplierName, invoice_number: "", invoice_date: "", items: allItems, total, source: "ai" });
+          }
         } else {
           const err = await res.json();
           setError(err.error ?? "Parse failed");

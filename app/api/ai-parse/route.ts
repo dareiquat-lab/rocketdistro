@@ -124,12 +124,22 @@ export async function POST(request: NextRequest) {
         messages: [{ role: "user", content }],
       });
 
-      const text = response.content[0].type === "text" ? response.content[0].text : "";
+      const raw = response.content[0].type === "text" ? response.content[0].text : "";
+      // Strip markdown code fences if the model wrapped the JSON, then find the
+      // outermost { ... } in case there's explanatory text before or after.
+      const extractJson = (s: string): string => {
+        const fenced = s.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (fenced) return fenced[1].trim();
+        const start = s.indexOf("{");
+        const end = s.lastIndexOf("}");
+        if (start !== -1 && end > start) return s.slice(start, end + 1);
+        return s.trim();
+      };
       try {
-        const parsed = JSON.parse(text.trim());
+        const parsed = JSON.parse(extractJson(raw));
         results.push(parsed);
       } catch {
-        results.push({ raw: text, error: "Failed to parse JSON" });
+        results.push({ raw, error: "Failed to parse JSON" });
       }
     }
 
