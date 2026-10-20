@@ -136,8 +136,18 @@ export function ImportClient() {
         if (res.ok) {
           const data = await res.json();
           const parseErrors = (data.results ?? []).filter((r: { error?: string }) => r.error).map((r: { error?: string }) => r.error);
-          const rawItems = (data.results ?? []).flatMap((r: { supplier?: string; items?: { name: string; brand?: string | null; quantity: number; unit_cost: number }[] }) => r.items ?? []);
-          const allItems = mergePromoItems(rawItems);
+          const rawItems = (data.results ?? []).flatMap((r: { supplier?: string; items?: { name: string; brand?: string | null; quantity: unknown; unit_cost: unknown }[] }) => r.items ?? []);
+          // AI may return quantity/unit_cost as strings — coerce to numbers before merging/rendering
+          const normalizedItems = rawItems
+            .filter(i => i.name)
+            .map(i => ({
+              ...i,
+              name: String(i.name),
+              brand: i.brand ? String(i.brand) : null,
+              quantity: Number(i.quantity) || 1,
+              unit_cost: Number(i.unit_cost) || 0,
+            }));
+          const allItems = mergePromoItems(normalizedItems);
           if (allItems.length === 0) {
             setError(parseErrors.length > 0 ? `AI could not parse this file. Try a clearer scan or use an Excel file instead.` : "AI found no line items in this file. Try a clearer scan or use an Excel file instead.");
           } else {
@@ -548,8 +558,8 @@ export function ImportClient() {
                     <td style={{ color: "var(--text)" }}>{item.name}</td>
                     <td style={{ color: "var(--text-muted)" }}>{item.brand || "—"}</td>
                     <td className="font-mono">{item.quantity}</td>
-                    <td className="font-mono">${item.unit_cost.toFixed(2)}</td>
-                    <td className="font-mono">${(item.quantity * item.unit_cost).toFixed(2)}</td>
+                    <td className="font-mono">${Number(item.unit_cost).toFixed(2)}</td>
+                    <td className="font-mono">${(Number(item.quantity) * Number(item.unit_cost)).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
