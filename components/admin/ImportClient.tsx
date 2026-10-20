@@ -136,12 +136,12 @@ export function ImportClient() {
         if (res.ok) {
           const data = await res.json();
           const parseErrors = (data.results ?? []).filter((r: { error?: string }) => r.error).map((r: { error?: string }) => r.error);
-          const rawItems = (data.results ?? []).flatMap((r: { supplier?: string; items?: { name: string; brand?: string | null; quantity: unknown; unit_cost: unknown }[] }) => r.items ?? []);
+          type RawItem = { name: unknown; brand?: unknown; quantity: unknown; unit_cost: unknown };
+          const rawItems = (data.results ?? []).flatMap((r: { supplier?: string; items?: RawItem[] }) => r.items ?? []);
           // AI may return quantity/unit_cost as strings — coerce to numbers before merging/rendering
           const normalizedItems = rawItems
-            .filter(i => i.name)
-            .map(i => ({
-              ...i,
+            .filter((i: RawItem) => i.name)
+            .map((i: RawItem) => ({
               name: String(i.name),
               brand: i.brand ? String(i.brand) : null,
               quantity: Number(i.quantity) || 1,
