@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
 
       const response = await client.messages.create({
         model: "claude-opus-4-8",
-        max_tokens: 4096,
+        max_tokens: mode === "invoice" ? 16000 : 4096,
         messages: [{ role: "user", content }],
       });
 
