@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { ADMIN_COOKIE, STAFF_COOKIE, isAdminOrStaff } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -119,8 +120,8 @@ export async function POST(request: NextRequest) {
           ];
 
       const response = await client.messages.create({
-        model: "claude-opus-4-8",
-        max_tokens: mode === "invoice" ? 16000 : 4096,
+        model: mode === "invoice" ? "claude-sonnet-4-6" : "claude-opus-4-8",
+        max_tokens: mode === "invoice" ? 8192 : 4096,
         messages: [{ role: "user", content }],
       });
 
