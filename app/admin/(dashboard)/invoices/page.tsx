@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Printer, Mail, Clock, ChevronDown, ChevronRight, FileSpreadsheet, Eye, Trash2, X, Download, File, ImageIcon } from "lucide-react";
+import { Printer, Mail, Clock, ChevronDown, ChevronRight, FileSpreadsheet, Eye, Trash2, X, Download, File, ImageIcon, Undo2 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { EmailInvoiceModal } from "@/components/admin/EmailInvoiceModal";
 import type { Order, InvoiceActivity, SupplierInvoice } from "@/types";
@@ -15,6 +15,7 @@ function CustomerInvoicesTab() {
   const [emailOrder, setEmailOrder] = useState<Order | null>(null);
   const [activity, setActivity] = useState<Record<number, InvoiceActivity[]>>({});
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [deletingOrderId, setDeletingOrderId] = useState<number | null>(null);
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -30,6 +31,18 @@ function CustomerInvoicesTab() {
   };
 
   useEffect(() => { fetchOrders(); }, []);
+
+  const handleDeleteOrder = async (order: Order) => {
+    if (!confirm(`Delete order ${order.order_number}? This cannot be undone.`)) return;
+    setDeletingOrderId(order.id);
+    try {
+      await fetch(`/api/admin/orders/${order.id}`, { method: "DELETE" });
+      setOrders(prev => prev.filter(o => o.id !== order.id));
+      if (expandedId === order.id) setExpandedId(null);
+    } finally {
+      setDeletingOrderId(null);
+    }
+  };
 
   const loadActivity = async (orderId: number) => {
     if (activity[orderId]) { setExpandedId(expandedId === orderId ? null : orderId); return; }
@@ -85,6 +98,15 @@ function CustomerInvoicesTab() {
                       </button>
                       <button onClick={() => loadActivity(order.id)} className="p-1.5 rounded hover:opacity-70" style={{ color: "var(--text-muted)" }} title="Activity Log">
                         <Clock size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteOrder(order)}
+                        disabled={deletingOrderId === order.id}
+                        className="p-1.5 rounded hover:opacity-70 disabled:opacity-40"
+                        style={{ color: "var(--error, #ef4444)" }}
+                        title="Delete order"
+                      >
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </td>
@@ -300,6 +322,7 @@ function SupplierInvoicesTab() {
   const [itemsCache, setItemsCache] = useState<Record<number, SupplierInvoice["items"]>>({});
   const [viewingInvoice, setViewingInvoice] = useState<SupplierInvoice | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [undoingId, setUndoingId] = useState<number | null>(null);
 
   const fetchInvoices = () => {
     fetch("/api/admin/supplier-invoices")
@@ -331,6 +354,23 @@ function SupplierInvoicesTab() {
       if (expandedId === inv.id) setExpandedId(null);
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleUndo = async (inv: SupplierInvoice) => {
+    if (!confirm(`Undo import of invoice from "${inv.supplier_name}"? This will reverse all inventory changes made by this import and delete the invoice record.`)) return;
+    setUndoingId(inv.id);
+    try {
+      const res = await fetch(`/api/admin/supplier-invoices/${inv.id}/undo`, { method: "POST" });
+      if (res.ok) {
+        setInvoices(prev => prev.filter(i => i.id !== inv.id));
+        if (expandedId === inv.id) setExpandedId(null);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Undo failed: ${err.error ?? "Server error"}`);
+      }
+    } finally {
+      setUndoingId(null);
     }
   };
 
@@ -387,11 +427,20 @@ function SupplierInvoicesTab() {
                         <Eye size={14} />
                       </button>
                       <button
+                        onClick={() => handleUndo(inv)}
+                        disabled={undoingId === inv.id || deletingId === inv.id}
+                        className="p-1.5 rounded hover:opacity-70 disabled:opacity-40"
+                        style={{ color: "var(--warning, #d97706)" }}
+                        title="Undo import (reverses inventory changes)"
+                      >
+                        <Undo2 size={14} />
+                      </button>
+                      <button
                         onClick={() => handleDelete(inv)}
-                        disabled={deletingId === inv.id}
+                        disabled={deletingId === inv.id || undoingId === inv.id}
                         className="p-1.5 rounded hover:opacity-70 disabled:opacity-40"
                         style={{ color: "var(--error, #ef4444)" }}
-                        title="Delete invoice"
+                        title="Delete invoice record only"
                       >
                         <Trash2 size={14} />
                       </button>

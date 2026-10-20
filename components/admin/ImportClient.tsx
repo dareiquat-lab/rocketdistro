@@ -230,30 +230,12 @@ export function ImportClient() {
         if (uploadRes.ok) fileUrl = (await uploadRes.json()).url ?? null;
       }
 
-      // 2. Save supplier invoice record
-      await fetch("/api/admin/supplier-invoices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          invoice_number: invoiceData.invoice_number || null,
-          supplier_name: invoiceData.supplier_name || "Unknown Supplier",
-          invoice_date: invoiceData.invoice_date || null,
-          total_amount: invoiceData.total,
-          import_source: invoiceData.source,
-          file_url: fileUrl,
-          items: invoiceData.items.map(i => ({
-            product_name: i.name,
-            quantity: Math.max(1, Math.round(Number(i.quantity) || 1)),
-            unit_cost: Number(i.unit_cost) || 0,
-          })),
-        }),
-      });
-
-      // 3. Import each item — collect failures but don't stop
+      // 2. Import each item — collect results (product_id + was_created) for undo support
       const failures: string[] = [];
+      const committedItems: { product_name: string; quantity: number; unit_cost: number; product_id: number | null; was_created: boolean }[] = [];
+
       for (const item of invoiceData.items) {
         try {
-          // Upsert brand, capture normalized name from server
           let brandName: string | null = item.brand ?? null;
           let brandImageUrl: string | null = null;
           if (item.brand) {
@@ -275,6 +257,7 @@ export function ImportClient() {
           // Check for existing product by exact name match
           const searchRes = await fetch(`/api/products?admin=true&search=${encodeURIComponent(item.name)}&limit=5`);
           let productId: number | null = null;
+          let wasCreated = false;
           if (searchRes.ok) {
             const d = await searchRes.json();
             const match = (d.products ?? []).find((p: { product_name: string; quantity: number; brand?: string | null }) =>
@@ -308,15 +291,49 @@ export function ImportClient() {
                 image_url: brandImageUrl,
               }),
             });
-            if (!createRes.ok) {
+            if (createRes.ok) {
+              const created = await createRes.json();
+              productId = created.id ?? null;
+              wasCreated = true;
+            } else {
               const err = await createRes.json().catch(() => ({}));
               failures.push(`${item.name}${err.error ? ` (${err.error})` : ""}`);
             }
           }
+
+          committedItems.push({
+            product_name: item.name,
+            quantity: qty,
+            unit_cost: cost,
+            product_id: productId,
+            was_created: wasCreated,
+          });
         } catch {
           failures.push(item.name);
+          committedItems.push({
+            product_name: item.name,
+            quantity: Math.max(1, Math.round(Number(item.quantity) || 1)),
+            unit_cost: Number(item.unit_cost) || 0,
+            product_id: null,
+            was_created: false,
+          });
         }
       }
+
+      // 3. Save supplier invoice record with product_id/was_created for undo support
+      await fetch("/api/admin/supplier-invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoice_number: invoiceData.invoice_number || null,
+          supplier_name: invoiceData.supplier_name || "Unknown Supplier",
+          invoice_date: invoiceData.invoice_date || null,
+          total_amount: invoiceData.total,
+          import_source: invoiceData.source,
+          file_url: fileUrl,
+          items: committedItems,
+        }),
+      });
 
       if (failures.length === invoiceData.items.length) {
         setError(`Import failed for all items. First: ${failures[0]}`);

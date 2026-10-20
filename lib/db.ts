@@ -1069,6 +1069,11 @@ export async function ensureSupplierInvoiceItemsTable() {
   await sql`CREATE INDEX IF NOT EXISTS idx_supplier_invoice_items_invoice_id ON supplier_invoice_items(invoice_id)`;
 }
 
+export async function ensureSupplierInvoiceItemsProductIdColumn() {
+  await sql`ALTER TABLE supplier_invoice_items ADD COLUMN IF NOT EXISTS product_id INTEGER`;
+  await sql`ALTER TABLE supplier_invoice_items ADD COLUMN IF NOT EXISTS was_created BOOLEAN NOT NULL DEFAULT false`;
+}
+
 export async function ensureSupplierInvoiceFileUrlColumn() {
   await sql`ALTER TABLE supplier_invoices ADD COLUMN IF NOT EXISTS file_url TEXT`;
 }
@@ -1081,11 +1086,12 @@ export async function createSupplierInvoice(data: {
   notes?: string | null;
   import_source?: string;
   file_url?: string | null;
-  items: { product_name: string; quantity: number; unit_cost: number }[];
+  items: { product_name: string; quantity: number; unit_cost: number; product_id?: number | null; was_created?: boolean }[];
 }) {
   await ensureSupplierInvoicesTable();
   await ensureSupplierInvoiceItemsTable();
   await ensureSupplierInvoiceFileUrlColumn();
+  await ensureSupplierInvoiceItemsProductIdColumn();
   const rows = await sql`
     INSERT INTO supplier_invoices (invoice_number, supplier_name, invoice_date, total_amount, notes, import_source, file_url)
     VALUES (${data.invoice_number ?? null}, ${data.supplier_name || "Unknown Supplier"}, ${data.invoice_date ?? null}, ${data.total_amount}, ${data.notes ?? null}, ${data.import_source ?? "excel"}, ${data.file_url ?? null})
@@ -1094,11 +1100,35 @@ export async function createSupplierInvoice(data: {
   const invoice = rows[0];
   for (const item of data.items) {
     await sql`
-      INSERT INTO supplier_invoice_items (invoice_id, product_name, quantity, unit_cost)
-      VALUES (${invoice.id as number}, ${item.product_name}, ${item.quantity}, ${item.unit_cost})
+      INSERT INTO supplier_invoice_items (invoice_id, product_name, quantity, unit_cost, product_id, was_created)
+      VALUES (${invoice.id as number}, ${item.product_name}, ${item.quantity}, ${item.unit_cost}, ${item.product_id ?? null}, ${item.was_created ?? false})
     `;
   }
   return invoice;
+}
+
+export async function undoSupplierInvoice(id: number) {
+  await ensureSupplierInvoicesTable();
+  await ensureSupplierInvoiceItemsTable();
+  await ensureSupplierInvoiceItemsProductIdColumn();
+
+  const items = await sql`SELECT * FROM supplier_invoice_items WHERE invoice_id = ${id}`;
+  for (const item of items) {
+    const productId = item.product_id as number | null;
+    if (!productId) continue;
+    if (item.was_created) {
+      await sql`DELETE FROM products WHERE id = ${productId}`;
+    } else {
+      await sql`
+        UPDATE products
+        SET quantity = GREATEST(0, quantity - ${item.quantity as number}),
+            updated_at = NOW()
+        WHERE id = ${productId}
+      `;
+    }
+  }
+
+  await sql`DELETE FROM supplier_invoices WHERE id = ${id}`;
 }
 
 export async function deleteSupplierInvoice(id: number) {

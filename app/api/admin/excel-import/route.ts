@@ -15,7 +15,19 @@ const PRODUCT_CANDIDATES = [
 const QTY_CANDIDATES = ["quantity", "qty", "units", "count", "pcs", "pieces", "pack", "ordered", "no of units"];
 const COST_CANDIDATES = ["unit cost", "unit price", "cost", "price", "rate", "each", "per unit", "amount", "value"];
 const BRAND_CANDIDATES = ["brand", "brand name", "manufacturer", "make", "mfr", "vendor brand", "label"];
-const SKIP_NAMES = ["total", "subtotal", "grand total", "sub-total", "tax", "shipping", "discount"];
+const SKIP_NAMES = ["total", "subtotal", "grand total", "sub-total", "sub total", "tax", "shipping", "discount"];
+
+// Returns true only when the entire cell is a summary/footer label — NOT when the keyword
+// appears mid-name (e.g. "Total Repair Shampoo" should NOT be skipped).
+// After the keyword, only non-alphabetic chars (amounts, colons, %, symbols) are allowed.
+function isSkipRow(name: string): boolean {
+  const lower = name.toLowerCase().trim();
+  return SKIP_NAMES.some((s) => {
+    if (!lower.startsWith(s)) return false;
+    const rest = lower.slice(s.length);
+    return rest === "" || !/[a-z]/i.test(rest);
+  });
+}
 
 function findColIndex(headers: string[], candidates: string[]): number {
   for (let i = 0; i < headers.length; i++) {
@@ -183,7 +195,7 @@ export async function POST(req: NextRequest) {
   // Detect header row (first row with ≥2 non-empty cells matching column keywords)
   const ALL_KEYWORDS = [...PRODUCT_CANDIDATES, ...QTY_CANDIDATES, ...COST_CANDIDATES, ...BRAND_CANDIDATES];
   let headerRowIdx = -1;
-  for (let i = 0; i < Math.min(rows.length, 20); i++) {
+  for (let i = 0; i < Math.min(rows.length, 50); i++) {
     const row = rows[i].map((c) => String(c ?? "").toLowerCase().trim());
     const hits = row.filter((c) => {
       if (c.length < 2) return false; // empty / single-char cells are never a column header
@@ -246,7 +258,7 @@ export async function POST(req: NextRequest) {
   for (let i = 0; i < dataRows.length; i++) {
     const row = dataRows[i] as unknown[];
     const name = rawNames[i];
-    if (!name || SKIP_NAMES.some((s) => name.toLowerCase().includes(s))) continue;
+    if (!name || isSkipRow(name)) continue;
     const qty = qtyCol !== -1 ? parseNumber(row[qtyCol]) : 1;
     const cost = costCol !== -1 ? parseNumber(row[costCol]) : 0;
     let brand: string | null = null;
